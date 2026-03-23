@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fichier AutoUpdater.NET — à héberger à la racine du repo GitHub (branche main).
+  URL stable : https://raw.githubusercontent.com/RomainRssl/DouzeAssistanceOverlay/main/update.xml
+  Ce fichier est mis à jour automatiquement par build.bat lors de chaque release.
+-->
+<item>
+  <version>1.0.0</version>
+  <url>https://github.com/RomainRssl/DouzeAssistanceOverlay/releases/download/v1.0.0/DouzeAssistance_Setup_v1.0.0.exe</url>
+  <changelog>https://github.com/RomainRssl/DouzeAssistanceOverlay/releases</changelog>
+  <mandatory>false</mandatory>
+</item>
