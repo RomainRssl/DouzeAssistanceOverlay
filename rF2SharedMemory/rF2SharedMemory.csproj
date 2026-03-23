@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>rF2SharedMemory</RootNamespace>
+    <AssemblyName>rF2SharedMemory</AssemblyName>
+    <Description>Shared memory structures and reader for rFactor 2 / Le Mans Ultimate</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,117 @@
+<Window x:Class="LMUOverlay.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Douze Assistance — Le Mans Ultimate"
+        Width="900" Height="620"
+        MinWidth="700" MinHeight="450"
+        WindowStartupLocation="CenterScreen"
+        Background="#FF121E1E"
+        ResizeMode="CanResizeWithGrip">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" Background="#FF162020" BorderBrush="#FF244444" BorderThickness="0,0,0,1" Padding="10,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="pack://application:,,,/Resources/logo.png" Width="40" Height="40" Margin="0,0,10,0"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="DOUZE ASSISTANCE" FontSize="15" FontWeight="Bold"
+                                   Foreground="#FFE0F0F0" FontFamily="Consolas"/>
+                        <TextBlock Text="Le Mans Ultimate Overlay" FontSize="9"
+                                   Foreground="#FF506E6E"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="VersionText" Text="v1.0.0" FontSize="9"
+                               Foreground="#FF506E6E" VerticalAlignment="Center"
+                               Margin="0,0,10,0" FontFamily="Consolas"
+                               Cursor="Hand" ToolTip="Cliquer pour vérifier les mises à jour"
+                               MouseLeftButtonDown="OnCheckUpdates"/>
+                    <Ellipse x:Name="StatusDot" Width="10" Height="10" Margin="0,0,6,0"/>
+                    <TextBlock x:Name="StatusText" FontSize="11" FontFamily="Consolas"
+                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Button x:Name="BtnConnect" Content="CONNECT" Click="OnConnect"
+                            Style="{StaticResource PrimaryButton}" FontSize="10" Padding="12,4"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ACTION BAR -->
+        <Border Grid.Row="1" Background="#FF1A2C2C" BorderBrush="#FF244444" BorderThickness="0,0,0,1" Padding="6,3">
+            <WrapPanel HorizontalAlignment="Center">
+                <Button x:Name="BtnLock" Content="🔒 LOCK HUD" Margin="3,2"
+                        Style="{StaticResource SecondaryButton}" Click="OnToggleLock" FontSize="9" Padding="10,3"/>
+                <Button Content="TOUT AFFICHER" Margin="3,2" Style="{StaticResource SecondaryButton}"
+                        Click="OnShowAll" FontSize="9" Padding="10,3"/>
+                <Button Content="TOUT MASQUER" Margin="3,2" Style="{StaticResource SecondaryButton}"
+                        Click="OnHideAll" FontSize="9" Padding="10,3"/>
+                <Button x:Name="BtnHideMenus" Content="📺 MASQUER MENUS: ON" Margin="3,2"
+                        Style="{StaticResource SecondaryButton}" Click="OnToggleHideMenus" FontSize="9" Padding="10,3"/>
+                <Button x:Name="BtnVR" Content="🥽 VR MODE" Margin="3,2"
+                        Style="{StaticResource SecondaryButton}" Click="OnToggleVR" FontSize="9" Padding="10,3"/>
+                <Button Content="💾 SAVE" Margin="3,2" Style="{StaticResource SecondaryButton}"
+                        Click="OnSave" FontSize="9" Padding="10,3"/>
+                <Button Content="📊 EXPORT" Margin="3,2" Style="{StaticResource SecondaryButton}"
+                        Click="OnExport" FontSize="9" Padding="10,3"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- MAIN: Sidebar + Settings -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="175"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT: overlay list -->
+            <Border Grid.Column="0" Background="#FF162020" BorderBrush="#FF244444" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="SidebarPanel" Margin="4,4"/>
+                </ScrollViewer>
+            </Border>
+
+            <!-- RIGHT: settings -->
+            <Border Grid.Column="1" Background="#FF121E1E">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="10,6">
+                    <StackPanel x:Name="SettingsPanel"/>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- FOOTER -->
+        <Border Grid.Row="3" Background="#FF162020" BorderBrush="#FF244444" BorderThickness="0,1,0,0" Padding="10,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Shared Memory" FontSize="9" Foreground="#FF96B4B4" Margin="0,0,4,0"/>
+                    <Ellipse x:Name="ShmDot" Width="8" Height="8" Margin="0,0,14,0"/>
+                    <TextBlock x:Name="TrackText" FontSize="9" Foreground="#FF506E6E" FontFamily="Consolas"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="ActiveCountText" FontSize="9" Foreground="#FF4CD964" FontFamily="Consolas" Margin="0,0,8,0"/>
+                    <TextBlock Text="Douze Assistance v1.0" FontSize="9" Foreground="#FF3A5050"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
