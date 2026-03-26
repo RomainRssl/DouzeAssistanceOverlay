@@ -73,7 +73,7 @@ echo.
 :: Étape 2 : Compilation
 :: ============================================================
 echo [2/6] Compilation...
-dotnet publish %CSPROJ% -c Release -r win-x64 --no-self-contained -p:PublishSingleFile=false -o %PUBLISH_DIR%
+dotnet publish %CSPROJ% -c Release -r win-x64 --no-self-contained -p:PublishSingleFile=false -p:Version=!VERSION! -p:AssemblyVersion=!VERSION!.0 -p:FileVersion=!VERSION!.0 -o %PUBLISH_DIR%
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 2 & pause & exit /b 1 )
 echo      OK
 echo.
@@ -105,7 +105,7 @@ echo.
 :: Étape 5 : update.xml
 :: ============================================================
 echo [5/6] Mise a jour update.xml...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$v='!VERSION!'; $url='https://github.com/RomainRssl/DouzeAssistanceOverlay/releases/download/v'+$v+'/DouzeAssistance_Setup_v'+$v+'.exe'; $xml=[string]::Format('<?xml version=\"1.0\" encoding=\"UTF-8\"?><item><version>{0}</version><url>{1}</url><changelog>https://github.com/RomainRssl/DouzeAssistanceOverlay/releases</changelog><mandatory>false</mandatory></item>',$v,$url); Set-Content -Path 'update.xml' -Value $xml -Encoding UTF8"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$v='!VERSION!'; $url='https://github.com/RomainRssl/DouzeAssistanceOverlay/releases/download/v'+$v+'/DouzeAssistance_Setup_v'+$v+'.exe'; $xml=[string]::Format('<?xml version=\"1.0\" encoding=\"UTF-8\"?><item><version>{0}.0</version><url>{1}</url><changelog>https://github.com/RomainRssl/DouzeAssistanceOverlay/releases</changelog><mandatory>false</mandatory></item>',$v,$url); Set-Content -Path 'update.xml' -Value $xml -Encoding UTF8"
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 5 & pause & exit /b 1 )
 echo      OK
 echo.
