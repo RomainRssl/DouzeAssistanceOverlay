@@ -1,0 +1,122 @@
+<UserControl x:Class="LMUOverlay.Views.TelemetryPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="TelBtn" TargetType="Button">
+            <Setter Property="Background" Value="#FF1A2C2C"/>
+            <Setter Property="Foreground" Value="#FF90B0B0"/>
+            <Setter Property="BorderBrush" Value="#FF244444"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FF244444"/>
+                                <Setter Property="Foreground" Value="#FFE0F0F0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="#FF121E1E">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- TOOLBAR -->
+        <Border Grid.Row="0" Background="#FF1A2C2C" BorderBrush="#FF244444"
+                BorderThickness="0,0,0,1" Padding="8,5">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button x:Name="BtnExport" Content="💾 EXPORT EXCEL" Click="OnExport"
+                            Style="{StaticResource TelBtn}" Margin="0,0,6,0"/>
+                    <Button x:Name="BtnImport" Content="📂 IMPORTER" Click="OnImport"
+                            Style="{StaticResource TelBtn}" Margin="0,0,12,0"/>
+                    <Border Width="1" Background="#FF244444" Margin="0,0,12,0"/>
+                    <TextBlock Text="Canal :" Foreground="#FF506E6E" FontFamily="Consolas"
+                               FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="CbChannel" Width="140" Height="22"
+                              FontFamily="Consolas" FontSize="10"
+                              Background="#FF1A2C2C" Foreground="#FFE0F0F0"
+                              BorderBrush="#FF244444"
+                              SelectionChanged="OnChannelChanged">
+                        <ComboBoxItem Content="Vitesse (km/h)" Tag="Speed" IsSelected="True"/>
+                        <ComboBoxItem Content="Gaz" Tag="Throttle"/>
+                        <ComboBoxItem Content="Frein" Tag="Brake"/>
+                        <ComboBoxItem Content="RPM" Tag="RPM"/>
+                        <ComboBoxItem Content="Rapport" Tag="Gear"/>
+                        <ComboBoxItem Content="Direction" Tag="Steering"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Legend -->
+                <StackPanel x:Name="LegendPanel" Orientation="Horizontal"
+                            DockPanel.Dock="Right" HorizontalAlignment="Right"/>
+            </DockPanel>
+        </Border>
+
+        <!-- CONTENT: Lap list + Chart -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LAP LIST -->
+            <Border Grid.Column="0" Background="#FF162020" BorderBrush="#FF244444"
+                    BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Background="#FF1A2C2C" Padding="8,4"
+                            BorderBrush="#FF244444" BorderThickness="0,0,0,1">
+                        <DockPanel>
+                            <TextBlock Text="TOURS" FontFamily="Consolas" FontSize="10"
+                                       FontWeight="Bold" Foreground="#FF00CCAA"
+                                       VerticalAlignment="Center"/>
+                            <Button x:Name="BtnClearTraces" Content="✕ VIDER" DockPanel.Dock="Right"
+                                    Style="{StaticResource TelBtn}" FontSize="9" Padding="6,2"
+                                    Click="OnClearTraces"/>
+                        </DockPanel>
+                    </Border>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="LapListPanel" Margin="4,4"/>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- CHART AREA -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Canvas chart -->
+                <Border Grid.Row="0" Margin="10" Background="#FF0D1616"
+                        BorderBrush="#FF244444" BorderThickness="1">
+                    <Canvas x:Name="ChartCanvas" SizeChanged="OnChartSizeChanged"
+                            ClipToBounds="True"/>
+                </Border>
+
+                <!-- X axis label -->
+                <TextBlock Grid.Row="1" Text="Position sur le tour →"
+                           FontFamily="Consolas" FontSize="9" Foreground="#FF506E6E"
+                           HorizontalAlignment="Center" Margin="0,0,0,4"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

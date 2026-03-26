@@ -431,6 +431,26 @@ namespace LMUOverlay.Models
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }
 
+    public class TelemetryPoint
+    {
+        public double TrackPos  { get; set; }  // 0-1
+        public double Speed     { get; set; }  // km/h
+        public double Throttle  { get; set; }  // 0-1
+        public double Brake     { get; set; }  // 0-1
+        public int    Gear      { get; set; }
+        public double RPM       { get; set; }
+        public double Steering  { get; set; }  // -1 to +1
+        public double Elapsed   { get; set; }  // seconds since lap start
+    }
+
+    public class LapTrace
+    {
+        public int    LapNumber { get; set; }
+        public double LapTime   { get; set; }
+        public string Compound  { get; set; } = "";
+        public List<TelemetryPoint> Points { get; set; } = new();
+    }
+
     public class DeltaData
     {
         public double CurrentDelta { get; set; }      // delta vs best lap at current track position

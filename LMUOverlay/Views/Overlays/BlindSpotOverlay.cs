@@ -15,81 +15,84 @@ namespace LMUOverlay.Views.Overlays
     public class BlindSpotOverlay : BaseOverlayWindow
     {
         private readonly Border _leftLed, _rightLed;
-        private readonly Ellipse _leftDot, _rightDot;
-
-        private const double LED_W = 8;
-        private const double LED_H = 50;
+        private readonly Grid _container;
 
         public BlindSpotOverlay(DataService ds, OverlaySettings s) : base(ds, s)
         {
-            // Transparent container — just two LEDs spaced apart
-            var grid = new Grid
+            double w = GetLedW(s);
+            double h = GetLedH(s);
+
+            _container = new Grid
             {
                 Width = 300,
-                Height = LED_H + 10,
+                Height = h + 10,
                 Background = Brushes.Transparent
             };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition());
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _container.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _container.ColumnDefinitions.Add(new ColumnDefinition());
+            _container.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // LEFT LED
-            _leftLed = MakeLed(out _leftDot);
+            _leftLed = MakeLed(w, h);
             Grid.SetColumn(_leftLed, 0);
-            grid.Children.Add(_leftLed);
+            _container.Children.Add(_leftLed);
 
-            // RIGHT LED
-            _rightLed = MakeLed(out _rightDot);
+            _rightLed = MakeLed(w, h);
             Grid.SetColumn(_rightLed, 2);
-            grid.Children.Add(_rightLed);
+            _container.Children.Add(_rightLed);
 
-            Content = grid;
+            Content = _container;
         }
 
-        private static Border MakeLed(out Ellipse dot)
+        private static double GetLedW(OverlaySettings s) =>
+            s.CustomOptions.TryGetValue("LedWidth", out var v) ? Convert.ToDouble(v) : 8;
+
+        private static double GetLedH(OverlaySettings s) =>
+            s.CustomOptions.TryGetValue("LedHeight", out var v) ? Convert.ToDouble(v) : 50;
+
+        public void UpdateLedSize(double w, double h)
+        {
+            _container.Height = h + 10;
+            foreach (var led in new[] { _leftLed, _rightLed })
+            {
+                led.Width = w;
+                led.Height = h;
+                led.CornerRadius = new CornerRadius(Math.Max(2, w / 2));
+                if (led.Child is StackPanel sp)
+                {
+                    double dotSize = Math.Max(3, w - 2);
+                    foreach (var child in sp.Children)
+                        if (child is Ellipse e) { e.Width = dotSize; e.Height = dotSize; }
+                }
+            }
+        }
+
+        private static Border MakeLed(double ledW, double ledH)
         {
             var border = new Border
             {
-                Width = LED_W, Height = LED_H,
-                CornerRadius = new CornerRadius(4),
+                Width = ledW, Height = ledH,
+                CornerRadius = new CornerRadius(Math.Max(2, ledW / 2)),
                 Background = new SolidColorBrush(Color.FromArgb(20, 255, 165, 0)),
                 VerticalAlignment = VerticalAlignment.Center
             };
 
+            double dotSize = Math.Max(3, ledW - 2);
             var stack = new StackPanel
             {
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
-            dot = new Ellipse
+            for (int i = 0; i < 3; i++)
             {
-                Width = 6, Height = 6,
-                Fill = new SolidColorBrush(Color.FromArgb(30, 255, 165, 0)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 2, 0, 2)
-            };
-            stack.Children.Add(dot);
-
-            // Second dot
-            var dot2 = new Ellipse
-            {
-                Width = 6, Height = 6,
-                Fill = new SolidColorBrush(Color.FromArgb(30, 255, 165, 0)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 2, 0, 2)
-            };
-            stack.Children.Add(dot2);
-
-            // Third dot
-            var dot3 = new Ellipse
-            {
-                Width = 6, Height = 6,
-                Fill = new SolidColorBrush(Color.FromArgb(30, 255, 165, 0)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 2, 0, 2)
-            };
-            stack.Children.Add(dot3);
+                stack.Children.Add(new Ellipse
+                {
+                    Width = dotSize, Height = dotSize,
+                    Fill = new SolidColorBrush(Color.FromArgb(30, 255, 165, 0)),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 2, 0, 2)
+                });
+            }
 
             border.Child = stack;
             return border;

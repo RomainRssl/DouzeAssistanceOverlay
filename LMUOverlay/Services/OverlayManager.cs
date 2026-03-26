@@ -167,6 +167,8 @@ namespace LMUOverlay.Services
             try { _reader.Update(); }
             catch { Disconnect(); return; }
 
+            _dataService.UpdateTelemetryTrace();
+
             // Hide overlays when in game menus / garage
             if (_config.General.HideInMenus)
             {
@@ -240,6 +242,9 @@ namespace LMUOverlay.Services
                 if (o.Settings.IsEnabled) o.Show(); else o.Hide();
             }
         }
+
+        public T? GetOverlay<T>(string key) where T : BaseOverlayWindow =>
+            _overlays.TryGetValue(key, out var o) ? o as T : null;
 
         public void ToggleOverlay(string key)
         {

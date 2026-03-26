@@ -31,6 +31,19 @@ if "%~1"=="" (
 
 set OUTPUT_INSTALLER=DouzeAssistance_Setup_v!VERSION!.exe
 
+:: --- Vérifier que la version n'existe pas déjà sur GitHub ---
+where gh >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    gh release view "v!VERSION!" --repo "%GITHUB_REPO%" >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        echo.
+        echo  ERREUR : La release v!VERSION! existe deja sur GitHub.
+        echo  Choisissez un autre numero de version.
+        pause
+        exit /b 1
+    )
+)
+
 echo.
 echo ============================================================
 echo   Douze Assistance — Build v!VERSION!
@@ -43,6 +56,16 @@ echo.
 echo [1/6] Mise a jour version dans .csproj ^(v!CURRENT_VERSION! -^> v!VERSION!^)...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$c = Get-Content -Path '%CSPROJ%' -Raw; $c = $c -replace '<Version>[^<]*</Version>', '<Version>!VERSION!</Version>'; Set-Content -Path '%CSPROJ%' -Value $c -NoNewline"
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1 & pause & exit /b 1 )
+echo      OK
+echo.
+
+:: ============================================================
+:: Étape 1b : Régénérer app.ico depuis logo.png
+:: ============================================================
+echo [1b] Regeneration app.ico depuis logo.png...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "Add-Type -AssemblyName System.Drawing; $src=[System.Drawing.Image]::FromFile('LMUOverlay\Resources\logo.png'); $dst='LMUOverlay\Resources\app.ico'; $sizes=@(256,128,64,48,32,24,16); $streams=@(); foreach($sz in $sizes){$bmp=New-Object System.Drawing.Bitmap($sz,$sz);$g=[System.Drawing.Graphics]::FromImage($bmp);$g.InterpolationMode=[System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic;$g.PixelOffsetMode=[System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality;$g.DrawImage($src,0,0,$sz,$sz);$ms=New-Object System.IO.MemoryStream;$bmp.Save($ms,[System.Drawing.Imaging.ImageFormat]::Png);$streams+=$ms;$g.Dispose();$bmp.Dispose()};$src.Dispose();$out=New-Object System.IO.MemoryStream;$w=New-Object System.IO.BinaryWriter($out);$w.Write([uint16]0);$w.Write([uint16]1);$w.Write([uint16]$sizes.Count);$off=6+16*$sizes.Count;for($i=0;$i -lt $sizes.Count;$i++){$b=$streams[$i].ToArray();$d=if($sizes[$i]-ge 256){0}else{$sizes[$i]};$w.Write([byte]$d);$w.Write([byte]$d);$w.Write([byte]0);$w.Write([byte]0);$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]$b.Length);$w.Write([uint32]$off);$off+=$b.Length};foreach($ms in $streams){$w.Write($ms.ToArray());$ms.Dispose()};$w.Flush();[System.IO.File]::WriteAllBytes($dst,$out.ToArray());$out.Dispose();$w.Dispose();Write-Host 'ICO OK'"
+if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1b & pause & exit /b 1 )
 echo      OK
 echo.
 
@@ -82,7 +105,7 @@ echo.
 :: Étape 5 : update.xml
 :: ============================================================
 echo [5/6] Mise a jour update.xml...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$v='!VERSION!'; $url='https://github.com/RomainRssl/DouzeAssistanceOverlay/releases/download/v'+$v+'/DouzeAssistance_Setup_v'+$v+'.exe'; $xml='<?xml version=''1.0'' encoding=''UTF-8''?><item><version>'+$v+'</version><url>'+$url+'</url><changelog>https://github.com/RomainRssl/DouzeAssistanceOverlay/releases</changelog><mandatory>false</mandatory></item>'; Set-Content -Path 'update.xml' -Value $xml -Encoding UTF8"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$v='!VERSION!'; $url='https://github.com/RomainRssl/DouzeAssistanceOverlay/releases/download/v'+$v+'/DouzeAssistance_Setup_v'+$v+'.exe'; $xml=[string]::Format('<?xml version=\"1.0\" encoding=\"UTF-8\"?><item><version>{0}</version><url>{1}</url><changelog>https://github.com/RomainRssl/DouzeAssistanceOverlay/releases</changelog><mandatory>false</mandatory></item>',$v,$url); Set-Content -Path 'update.xml' -Value $xml -Encoding UTF8"
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 5 & pause & exit /b 1 )
 echo      OK
 echo.
@@ -97,7 +120,7 @@ if %ERRORLEVEL% NEQ 0 ( echo ERREUR: git non trouve & pause & exit /b 1 )
 
 git add update.xml %CSPROJ%
 git commit -m "Release v!VERSION!"
-git push
+git push --set-upstream origin main
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR: git push echoue & pause & exit /b 1 )
 echo      Push OK
 

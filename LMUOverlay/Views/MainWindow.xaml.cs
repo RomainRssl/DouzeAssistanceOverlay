@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using LMUOverlay.Models;
 using LMUOverlay.Services;
+using LMUOverlay.Views.Overlays;
 
 namespace LMUOverlay.Views
 {
@@ -66,10 +67,11 @@ namespace LMUOverlay.Views
             if (_allOverlays.Count > 0)
                 SelectOverlay(_allOverlays[0].Key);
 
-            // Afficher la version courante
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            if (version != null)
-                VersionText.Text = $"v{version.Major}.{version.Minor}.{version.Build}";
+            // Afficher la version courante (lire AssemblyInformationalVersion = tag <Version> du .csproj)
+            var ver = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion?.Split('+')[0] ?? "1.0.0";
+            VersionText.Text = $"v{ver}";
 
             // Vérifier les mises à jour 5 secondes après le démarrage (silencieux)
             var updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
@@ -90,29 +92,40 @@ namespace LMUOverlay.Views
         // SIDEBAR — Overlay list
         // ================================================================
 
+        // Flat toggle helper
+        private static readonly SolidColorBrush _btnActive   = new(Color.FromRgb(46, 90, 46));
+        private static readonly SolidColorBrush _btnInactive = new(Color.FromRgb(42, 42, 42));
+        private static readonly SolidColorBrush _fgActive    = new(Color.FromRgb(255, 255, 255));
+        private static readonly SolidColorBrush _fgInactive  = new(Color.FromRgb(200, 200, 200));
+
+        private static void SetActive(Button btn, bool active)
+        {
+            btn.Background = active ? _btnActive   : _btnInactive;
+            btn.Foreground = active ? _fgActive    : _fgInactive;
+        }
+
         private void BuildSidebar()
         {
             foreach (var (key, name, settings) in _allOverlays)
             {
                 var row = new Grid
                 {
-                    Margin = new Thickness(0, 0, 0, 1),
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Background = Brushes.Transparent
                 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
                 row.ColumnDefinitions.Add(new ColumnDefinition());
 
                 // Checkbox
                 var cb = new CheckBox
                 {
                     IsChecked = settings.IsEnabled,
-                    Style = (Style)FindResource("ToggleSwitchStyle"),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(2, 0, 4, 0)
+                    Style = (Style)FindResource("SidebarCheckBox"),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 0)
                 };
                 string capturedKey = key;
-                cb.Checked += (s, e) => { settings.IsEnabled = true; _overlayManager.RefreshOverlayVisibility(); UpdateFooter(); };
+                cb.Checked   += (s, e) => { settings.IsEnabled = true;  _overlayManager.RefreshOverlayVisibility(); UpdateFooter(); };
                 cb.Unchecked += (s, e) => { settings.IsEnabled = false; _overlayManager.RefreshOverlayVisibility(); UpdateFooter(); };
                 settings.PropertyChanged += (s, e) =>
                 {
@@ -126,23 +139,31 @@ namespace LMUOverlay.Views
                 var label = new TextBlock
                 {
                     Text = name,
-                    FontSize = 11, FontWeight = FontWeights.SemiBold,
-                    FontFamily = new FontFamily("Consolas"),
-                    Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(230, 240, 240) : Color.FromRgb(90, 120, 120)),
+                    FontSize = 10, FontWeight = FontWeights.SemiBold,
+                    FontFamily = new FontFamily("Segoe UI Semibold"),
+                    Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(210, 210, 210) : Color.FromRgb(100, 100, 100)),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Padding = new Thickness(2, 5, 2, 5)
+                    Padding = new Thickness(4, 6, 4, 6)
                 };
                 settings.PropertyChanged += (s, e) =>
                 {
                     if (e.PropertyName == nameof(OverlaySettings.IsEnabled))
-                        label.Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(230, 240, 240) : Color.FromRgb(90, 120, 120));
+                        label.Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(210, 210, 210) : Color.FromRgb(100, 100, 100));
                 };
                 label.MouseLeftButtonDown += (s, e) => SelectOverlay(capturedKey);
-                row.MouseLeftButtonDown += (s, e) => SelectOverlay(capturedKey);
+                row.MouseLeftButtonDown   += (s, e) => SelectOverlay(capturedKey);
 
                 Grid.SetColumn(label, 1);
                 row.Children.Add(label);
                 SidebarPanel.Children.Add(row);
+
+                // Separator
+                SidebarPanel.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = new SolidColorBrush(Color.FromRgb(38, 38, 38)),
+                    Margin = new Thickness(0)
+                });
             }
         }
 
@@ -158,11 +179,13 @@ namespace LMUOverlay.Views
             var s = entry.Settings;
 
             // Highlight sidebar
-            for (int i = 0; i < _allOverlays.Count && i < SidebarPanel.Children.Count; i++)
+            // Each overlay = 2 children (Grid row + separator), so stride = 2
+            for (int i = 0; i < _allOverlays.Count; i++)
             {
-                if (SidebarPanel.Children[i] is Grid g)
+                int childIdx = i * 2;
+                if (childIdx < SidebarPanel.Children.Count && SidebarPanel.Children[childIdx] is Grid g)
                     g.Background = _allOverlays[i].Key == key
-                        ? new SolidColorBrush(Color.FromArgb(30, 76, 217, 100))
+                        ? new SolidColorBrush(Color.FromArgb(60, 46, 90, 46))
                         : Brushes.Transparent;
             }
 
@@ -216,6 +239,26 @@ namespace LMUOverlay.Views
                     v => _config.StandingsColumns.OtherClassCount = (int)v, "F0");
                 AddToggle("Session info", _config.StandingsColumns.ShowSessionInfo,
                     v => _config.StandingsColumns.ShowSessionInfo = v);
+            }
+            if (key == "BlindSpot")
+            {
+                AddSep();
+                double ledW = _config.BlindSpot.CustomOptions.TryGetValue("LedWidth",  out var cw) ? Convert.ToDouble(cw) : 8;
+                double ledH = _config.BlindSpot.CustomOptions.TryGetValue("LedHeight", out var ch) ? Convert.ToDouble(ch) : 50;
+                AddSlider("Largeur LED", ledW, 4, 40, v =>
+                {
+                    _config.BlindSpot.CustomOptions["LedWidth"] = v;
+                    _overlayManager.GetOverlay<BlindSpotOverlay>("BlindSpot")?.UpdateLedSize(
+                        v,
+                        _config.BlindSpot.CustomOptions.TryGetValue("LedHeight", out var h2) ? Convert.ToDouble(h2) : 50);
+                }, "F0");
+                AddSlider("Hauteur LED", ledH, 20, 200, v =>
+                {
+                    _config.BlindSpot.CustomOptions["LedHeight"] = v;
+                    _overlayManager.GetOverlay<BlindSpotOverlay>("BlindSpot")?.UpdateLedSize(
+                        _config.BlindSpot.CustomOptions.TryGetValue("LedWidth", out var w2) ? Convert.ToDouble(w2) : 8,
+                        v);
+                }, "F0");
             }
             if (key == "Dashboard")
             {
@@ -499,23 +542,26 @@ namespace LMUOverlay.Views
         {
             _isLocked = !_isLocked;
             _overlayManager.SetAllLocked(_isLocked);
-            BtnLock.Content = _isLocked ? "🔓 UNLOCK HUD" : "🔒 LOCK HUD";
+            BtnLock.Content = _isLocked ? "UNLOCK HUD" : "LOCK HUD";
+            SetActive(BtnLock, _isLocked);
         }
 
         private void OnToggleHideMenus(object s, RoutedEventArgs e)
         {
             _config.General.HideInMenus = !_config.General.HideInMenus;
-            BtnHideMenus.Content = _config.General.HideInMenus
-                ? "📺 MASQUER MENUS: ON"
-                : "📺 MASQUER MENUS: OFF";
+            SetActive(BtnHideMenus, _config.General.HideInMenus);
         }
 
         private void OnToggleVR(object s, RoutedEventArgs e)
         {
-            if (_overlayManager.IsVRActive) { _overlayManager.StopVR(); BtnVR.Content = "🥽 VR MODE"; }
+            if (_overlayManager.IsVRActive)
+            {
+                _overlayManager.StopVR();
+                SetActive(BtnVR, false);
+            }
             else
             {
-                if (_overlayManager.StartVR(out string err)) BtnVR.Content = "🥽 VR ON";
+                if (_overlayManager.StartVR(out string err)) SetActive(BtnVR, true);
                 else MessageBox.Show($"VR Error:\n{err}", "VR", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -534,6 +580,38 @@ namespace LMUOverlay.Views
             if (laps.Count == 0) { MessageBox.Show("Aucun tour enregistré.", "Export"); return; }
             string path = _csvExportService.ExportLapHistory(laps, _overlayManager.DataService.GetTrackName());
             MessageBox.Show($"Exporté:\n{path}", "Export CSV", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // ================================================================
+        // SECTION TABS: HUD / TELEMETRY
+        // ================================================================
+
+        private static readonly SolidColorBrush _tabActive   = new(Color.FromRgb(46, 90, 46));
+        private static readonly SolidColorBrush _tabInactive = new(Color.FromArgb(0, 0, 0, 0));
+
+        private void OnTabHud(object s, RoutedEventArgs e)
+        {
+            HudGrid.Visibility    = Visibility.Visible;
+            TelPanel.Visibility   = Visibility.Collapsed;
+            HudActions.Visibility = Visibility.Visible;
+            TabHud.Background       = _tabActive;
+            TabHud.Foreground       = Brushes.White;
+            TabTelemetry.Background = _tabInactive;
+            TabTelemetry.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+        }
+
+        private void OnTabTelemetry(object s, RoutedEventArgs e)
+        {
+            HudGrid.Visibility    = Visibility.Collapsed;
+            TelPanel.Visibility   = Visibility.Visible;
+            HudActions.Visibility = Visibility.Collapsed;
+            TabTelemetry.Background = _tabActive;
+            TabTelemetry.Foreground = Brushes.White;
+            TabHud.Background       = _tabInactive;
+            TabHud.Foreground       = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+
+            string track = _overlayManager.DataService.GetTrackName();
+            TelPanel.Refresh(_overlayManager.DataService, track);
         }
 
         // ================================================================

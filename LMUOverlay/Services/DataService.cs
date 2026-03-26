@@ -1166,6 +1166,80 @@ namespace LMUOverlay.Services
         public List<LapRecord> GetLapHistory() => new(_lapHistory);
 
         // ====================================================================
+        // TELEMETRY TRACES
+        // ====================================================================
+
+        private readonly List<LapTrace>       _lapTraces    = new();
+        private readonly List<TelemetryPoint> _currentTrace = new();
+        private double _lastTraceDist = -1;
+        private const int MAX_TRACES = 30;
+        private const double TRACE_INTERVAL_M = 5.0; // sample every 5m
+
+        public void UpdateTelemetryTrace()
+        {
+            if (!_reader.IsConnected) return;
+            var ps = _reader.GetPlayerScoring();
+            var pt = _reader.GetPlayerTelemetry();
+            if (ps == null || pt == null) return;
+
+            var scr = ps.Value;
+            var tel = pt.Value;
+            var info = _reader.ScoringInfo;
+
+            double lapLength = info.mLapDist; // mLapDist in ScoringInfo = total track length
+            if (lapLength <= 0) return;
+
+            double dist = scr.mLapDist;
+            if (dist < 0) return;
+
+            // Detect new lap: save current trace
+            if (scr.mTotalLaps != _traceLastLap)
+            {
+                if (_traceLastLap >= 0 && _currentTrace.Count > 10 && scr.mLastLapTime > 0)
+                {
+                    var trace = new LapTrace
+                    {
+                        LapNumber = _traceLastLap,
+                        LapTime   = scr.mLastLapTime,
+                        Compound  = rF2Helper.Str(tel.mFrontTireCompoundName),
+                        Points    = new List<TelemetryPoint>(_currentTrace)
+                    };
+                    _lapTraces.Add(trace);
+                    if (_lapTraces.Count > MAX_TRACES)
+                        _lapTraces.RemoveAt(0);
+                }
+                _currentTrace.Clear();
+                _lastTraceDist = -1;
+                _traceLastLap = scr.mTotalLaps;
+            }
+
+            // Sample every TRACE_INTERVAL_M
+            if (dist < _lastTraceDist + TRACE_INTERVAL_M) return;
+            _lastTraceDist = dist;
+
+            double lapStartET = tel.mLapStartET > 0 ? tel.mLapStartET : scr.mLapStartET;
+            double speed = Math.Sqrt(
+                tel.mLocalVel.x * tel.mLocalVel.x +
+                tel.mLocalVel.z * tel.mLocalVel.z) * 3.6; // m/s → km/h
+
+            _currentTrace.Add(new TelemetryPoint
+            {
+                TrackPos = Math.Clamp(dist / lapLength, 0, 1),
+                Speed    = speed,
+                Throttle = tel.mUnfilteredThrottle,
+                Brake    = tel.mUnfilteredBrake,
+                Gear     = tel.mGear,
+                RPM      = tel.mEngineRPM,
+                Steering = tel.mUnfilteredSteering,
+                Elapsed  = Math.Max(0, tel.mElapsedTime - lapStartET)
+            });
+        }
+
+        private int _traceLastLap = -1;
+
+        public List<LapTrace> GetLapTraces() => new(_lapTraces);
+
+        // ====================================================================
         // DAMAGE DATA
         // ====================================================================
 

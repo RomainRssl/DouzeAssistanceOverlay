@@ -57,19 +57,30 @@ namespace rF2SharedMemory
 
             try
             {
-                _stream.Position = 0;
-                int bytesRead = _stream.Read(_buffer, 0, _structSize);
-                if (bytesRead < _structSize) return default;
+                // Spinlock : re-read until mVersionUpdateBegin == mVersionUpdateEnd
+                // (both are uint at offsets 0 and 4 in every rF2 buffer struct)
+                const int maxRetries = 3;
+                for (int attempt = 0; attempt < maxRetries; attempt++)
+                {
+                    _stream.Position = 0;
+                    int bytesRead = _stream.Read(_buffer, 0, _structSize);
+                    if (bytesRead < _structSize) return default;
 
-                GCHandle handle = GCHandle.Alloc(_buffer, GCHandleType.Pinned);
-                try
-                {
-                    return (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T))!;
+                    uint vBegin = BitConverter.ToUInt32(_buffer, 0);
+                    uint vEnd   = BitConverter.ToUInt32(_buffer, 4);
+                    if (vBegin != vEnd) continue; // game was writing, retry
+
+                    GCHandle handle = GCHandle.Alloc(_buffer, GCHandleType.Pinned);
+                    try
+                    {
+                        return (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T))!;
+                    }
+                    finally
+                    {
+                        handle.Free();
+                    }
                 }
-                finally
-                {
-                    handle.Free();
-                }
+                return default; // still mid-write after retries → skip this frame
             }
             catch
             {
