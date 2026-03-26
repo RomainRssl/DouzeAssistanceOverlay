@@ -33,9 +33,9 @@ set OUTPUT_INSTALLER=DouzeAssistance_Setup_v!VERSION!.exe
 
 :: --- Vérifier que la version n'existe pas déjà sur GitHub ---
 where gh >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
+if !ERRORLEVEL! EQU 0 (
     gh release view "v!VERSION!" --repo "%GITHUB_REPO%" >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
+    if !ERRORLEVEL! EQU 0 (
         echo.
         echo  ERREUR : La release v!VERSION! existe deja sur GitHub.
         echo  Choisissez un autre numero de version.
