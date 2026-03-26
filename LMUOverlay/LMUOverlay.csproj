@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="AutoUpdater.NET.Official" Version="1.9.2" />
+    <PackageReference Include="ClosedXML" Version="0.103.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
