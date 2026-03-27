@@ -39,33 +39,45 @@ namespace LMUOverlay.Views.Overlays
             { "Interlagos",                    "interlagos" },
             { "Autodromo Jose Carlos Pace",    "interlagos" },
             { "Autódromo José Carlos Pace",    "interlagos" },
-            // Bahrain
-            { "Bahrain International Circuit", "bahrain" },
-            { "Bahrain",                       "bahrain" },
+            // Bahrain (all layouts)
+            { "Bahrain International Circuit",          "bahrain" },
+            { "Bahrain International Endurance Circuit","bahrain" },
+            { "Bahrain International Outer Circuit",    "bahrain" },
+            { "Bahrain International Paddock Circuit",  "bahrain" },
+            { "Bahrain",                                "bahrain" },
             // COTA
             { "Circuit of the Americas",       "cota" },
             { "COTA",                          "cota" },
             { "COTA National",                 "cota" },
-            // Le Mans
-            { "Circuit de la Sarthe",          "lemans" },
-            { "Le Mans",                       "lemans" },
-            // Fuji
-            { "Fuji",                          "fuji" },
-            { "Fuji International Speedway",   "fuji" },
-            { "Fuji Speedway",                 "fuji" },
-            // Lusail
-            { "Lusail International Circuit",  "lusail" },
-            { "Lusail",                        "lusail" },
-            // Monza
+            { "Austin",                        "cota" },
+            // Le Mans (all layouts)
+            { "Circuit de la Sarthe",                        "lemans" },
+            { "Circuit de la Sarthe Mulsanne No Chicanes",   "lemans" },
+            { "Le Mans",                                     "lemans" },
+            // Fuji (all layouts)
+            { "Fuji",                               "fuji" },
+            { "Fuji International Speedway",        "fuji" },
+            { "Fuji Speedway",                      "fuji" },
+            { "Fuji Classic Layout",                "fuji" },
+            { "Fuji Classic Layout (No Chicane)",   "fuji" },
+            // Lusail (all layouts)
+            { "Lusail International Circuit",       "lusail" },
+            { "Lusail International Circuit Short", "lusail" },
+            { "Lusail",                             "lusail" },
+            { "Losail",                             "lusail" },
+            // Monza (all layouts)
             { "Monza",                         "monza" },
             { "Autodromo Nazionale Monza",     "monza" },
-            // Sebring
+            { "Monza Curva Grande Layout",     "monza" },
+            // Sebring (all layouts)
             { "Sebring",                       "sebring" },
             { "Sebring International Raceway", "sebring" },
-            // Spa
+            { "Sebring School Circuit",        "sebring" },
+            // Spa (all layouts)
             { "Spa",                           "spa" },
             { "Spa-Francorchamps",             "spa" },
             { "Circuit de Spa",                "spa" },
+            { "Spa Endurance Layout",          "spa" },
             // Paul Ricard
             { "Paul Ricard",                   "paul_ricard" },
             { "Circuit Paul Ricard",           "paul_ricard" },
