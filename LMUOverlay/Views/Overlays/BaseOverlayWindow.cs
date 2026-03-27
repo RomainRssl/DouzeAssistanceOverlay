@@ -34,6 +34,7 @@ namespace LMUOverlay.Views.Overlays
         // Edge handles
         private readonly Border _edgeRight, _edgeBottom;
         private readonly Polygon _grip;
+        private bool _resizeDisabled;
 
         private const double EDGE_THICKNESS = 6;
 
@@ -145,7 +146,7 @@ namespace LMUOverlay.Views.Overlays
         private void OnFirstLoaded(object sender, RoutedEventArgs e)
         {
             Loaded -= OnFirstLoaded;
-            if (Settings.OverlayWidth > 30 && Settings.OverlayHeight > 30)
+            if (!_resizeDisabled && Settings.OverlayWidth > 30 && Settings.OverlayHeight > 30)
                 ActivateCustomSize(Settings.OverlayWidth, Settings.OverlayHeight);
         }
 
@@ -233,8 +234,24 @@ namespace LMUOverlay.Views.Overlays
             }
         }
 
+        /// <summary>
+        /// Call from a subclass constructor to permanently hide resize handles
+        /// and keep the window in auto-size mode (SizeToContent).
+        /// </summary>
+        protected void DisableManualResize()
+        {
+            _resizeDisabled = true;
+            _grip.Visibility     = Visibility.Collapsed;
+            _edgeRight.Visibility = Visibility.Collapsed;
+            _edgeBottom.Visibility = Visibility.Collapsed;
+            // Ensure no previously-saved custom size is applied
+            Settings.OverlayWidth  = 0;
+            Settings.OverlayHeight = 0;
+        }
+
         public void UpdateLockState()
         {
+            if (_resizeDisabled) return;
             var vis = Settings.IsLocked ? Visibility.Collapsed : Visibility.Visible;
             _grip.Visibility = vis;
             _edgeRight.Visibility = vis;
@@ -278,7 +295,7 @@ namespace LMUOverlay.Views.Overlays
 
         private void StartResize(MouseButtonEventArgs e, Edge edge)
         {
-            if (Settings.IsLocked) return;
+            if (Settings.IsLocked || _resizeDisabled) return;
             _isResizing = true;
             _activeEdge = edge;
             _resizeScreenStart = PointToScreen(e.GetPosition(this));
