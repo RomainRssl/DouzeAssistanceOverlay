@@ -52,7 +52,7 @@ namespace LMUOverlay.Views
                 ("FuelStrategy",         "STRATÉGIE",    _config.FuelInfo),
                 ("DeltaTime",           "DELTA",        _config.DeltaTime),
                 ("Damage",              "DAMAGE",       _config.Damage),
-                ("LapHistory",          "LAPTIMEINFO",  _config.LapHistory),
+                ("LapHistory",          "LAPTIMELOG",   _config.LapHistory),
                 ("GForce",              "GFORCE",       _config.GForce),
                 ("Dashboard",           "DASHBOARD",    _config.Dashboard),
                 ("TrackLimits",         "TRACKLIMITS",  _config.TrackLimits),

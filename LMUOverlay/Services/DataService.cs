@@ -1092,7 +1092,8 @@ namespace LMUOverlay.Services
                         Sector3 = scr.mLastLapTime - scr.mLastSector2,
                         FuelUsed = _fuelSamples.Count > 0 ? _fuelSamples[^1] : 0,
                         FuelRemaining = tel.mFuel,
-                        TireCompound = rF2Helper.Str(tel.mFrontTireCompoundName)
+                        TireCompound = rF2Helper.Str(tel.mFrontTireCompoundName),
+                        TrackTemp = _reader.ScoringInfo.mTrackTemp
                     });
                 }
                 _currentLapProfile.Clear();

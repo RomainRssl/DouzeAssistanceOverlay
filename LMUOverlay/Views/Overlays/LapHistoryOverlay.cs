@@ -7,249 +7,369 @@ using LMUOverlay.Services;
 
 namespace LMUOverlay.Views.Overlays
 {
+    /// <summary>
+    /// LAPTIME LOG overlay — racing-style lap history table.
+    /// Shows: session best bar (purple), per-lap list with time / delta vs prev / track temp.
+    /// </summary>
     public class LapHistoryOverlay : BaseOverlayWindow
     {
-        private readonly StackPanel _tablePanel;
-        private readonly Canvas _graphCanvas;
-        private readonly Border _tableContainer, _graphContainer;
-        private readonly TextBlock _bestLapLabel, _modeLabel;
-        private bool _graphMode;
-        private int _lastCount;
+        // ────────────────────────────────────────────────────────────────────
+        // PALETTE
+        // ────────────────────────────────────────────────────────────────────
+        private static readonly Color CBackground = Color.FromRgb(0x16, 0x16, 0x16);
+        private static readonly Color CHeaderBg   = Color.FromRgb(0x22, 0x22, 0x22);
+        private static readonly Color CBestBg     = Color.FromRgb(0x6B, 0x21, 0xA8); // purple
+        private static readonly Color CYellow     = Color.FromRgb(0xFF, 0xC1, 0x07);
+        private static readonly Color CWhite      = Color.FromRgb(0xFF, 0xFF, 0xFF);
+        private static readonly Color CGreen      = Color.FromRgb(0x44, 0xDD, 0x44);
+        private static readonly Color CRed        = Color.FromRgb(0xFF, 0x44, 0x44);
+        private static readonly Color CGray       = Color.FromRgb(0x55, 0x55, 0x55);
+        private static readonly Color CDivider    = Color.FromRgb(0x2C, 0x2C, 0x2C);
+        private static readonly Color CSubtle     = Color.FromRgb(0xAA, 0xAA, 0xAA);
 
-        private const double GW = 300, GH = 120;
-        private const int GRAPH_LAPS = 6;
+        private static readonly FontFamily FBold   = new("Segoe UI");
+        private static readonly FontFamily FMono   = new("Consolas");
 
+        // ────────────────────────────────────────────────────────────────────
+        // LAYOUT CONSTANTS
+        // ────────────────────────────────────────────────────────────────────
+        private const double TotalW  = 320;
+        private const double PadH    = 10;   // horizontal inner padding
+        private const double ColLap  = 36;
+        private const double ColTime = 96;
+        private const double ColDelta= 78;
+        // ColTemp = remainder
+
+        // ────────────────────────────────────────────────────────────────────
+        // CONTROLS
+        // ────────────────────────────────────────────────────────────────────
+        private readonly TextBlock _bestTimeText;
+        private readonly TextBlock _bestTempText;
+        private readonly StackPanel _rows;
+        private int _lastCount = -1;
+
+        // ────────────────────────────────────────────────────────────────────
+        // CONSTRUCTOR
+        // ────────────────────────────────────────────────────────────────────
         public LapHistoryOverlay(DataService ds, OverlaySettings s) : base(ds, s)
         {
-            var border = OverlayHelper.MakeBorder();
+            var root = new Border
+            {
+                Background    = new SolidColorBrush(CBackground),
+                CornerRadius  = new CornerRadius(4),
+                ClipToBounds  = true,
+                Width         = TotalW
+            };
             var sp = new StackPanel();
 
-            // Title row with mode toggle
-            var titleRow = new Grid();
-            titleRow.ColumnDefinitions.Add(new ColumnDefinition());
-            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            sp.Children.Add(titleRow);
+            // ── Title bar ──────────────────────────────────────────────────
+            sp.Children.Add(MakeTitleBar());
 
-            var title = OverlayHelper.MakeTitle("LAP HISTORY");
-            titleRow.Children.Add(title);
-
-            _modeLabel = new TextBlock
+            // ── Session best bar ───────────────────────────────────────────
+            var bestBar = new Grid
             {
-                Text = "[TABLE]", FontSize = 9, FontFamily = new FontFamily("Consolas"),
-                Foreground = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
-                Cursor = System.Windows.Input.Cursors.Hand,
+                Background = new SolidColorBrush(CBestBg),
+                Margin     = new Thickness(0, 1, 0, 1)
+            };
+            bestBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
+            bestBar.ColumnDefinitions.Add(new ColumnDefinition());
+            bestBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // Left: "SESSION BEST" label
+            var sessionLabel = new TextBlock
+            {
+                Text                = "SESSION\nBEST",
+                FontFamily          = FBold,
+                FontSize            = 8.5,
+                FontWeight          = FontWeights.Bold,
+                Foreground          = new SolidColorBrush(CWhite),
+                VerticalAlignment   = VerticalAlignment.Center,
+                Margin              = new Thickness(PadH, 9, 0, 9),
+                LineHeight          = 13
+            };
+            Grid.SetColumn(sessionLabel, 0);
+            bestBar.Children.Add(sessionLabel);
+
+            // Center: best lap time
+            _bestTimeText = new TextBlock
+            {
+                Text                    = "--:--.---",
+                FontFamily              = FBold,
+                FontSize                = 22,
+                FontWeight              = FontWeights.Bold,
+                Foreground              = new SolidColorBrush(CWhite),
+                VerticalAlignment       = VerticalAlignment.Center,
+                HorizontalAlignment     = HorizontalAlignment.Center
+            };
+            Grid.SetColumn(_bestTimeText, 1);
+            bestBar.Children.Add(_bestTimeText);
+
+            // Right: road icon + track temp
+            var tempPanel = new StackPanel
+            {
+                Orientation         = Orientation.Horizontal,
+                VerticalAlignment   = VerticalAlignment.Center,
+                Margin              = new Thickness(0, 0, PadH, 0)
+            };
+            tempPanel.Children.Add(MakeRoadIcon(16, CWhite));
+            _bestTempText = new TextBlock
+            {
+                Text              = "--°C",
+                FontFamily        = FBold,
+                FontSize          = 11,
+                FontWeight        = FontWeights.SemiBold,
+                Foreground        = new SolidColorBrush(CWhite),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 4, 0)
+                Margin            = new Thickness(5, 0, 0, 0)
             };
-            _modeLabel.MouseLeftButtonDown += (s2, e) =>
+            tempPanel.Children.Add(_bestTempText);
+            Grid.SetColumn(tempPanel, 2);
+            bestBar.Children.Add(tempPanel);
+
+            sp.Children.Add(bestBar);
+
+            // ── Column headers ─────────────────────────────────────────────
+            sp.Children.Add(MakeHeaderRow());
+
+            // ── Lap rows (scrollable) ──────────────────────────────────────
+            _rows = new StackPanel();
+            var scroll = new ScrollViewer
             {
-                _graphMode = !_graphMode;
-                _modeLabel.Text = _graphMode ? "[GRAPH]" : "[TABLE]";
-                _tableContainer.Visibility = _graphMode ? Visibility.Collapsed : Visibility.Visible;
-                _graphContainer.Visibility = _graphMode ? Visibility.Visible : Visibility.Collapsed;
-                _lastCount = -1; // force refresh
+                Content = _rows,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                MaxHeight = 270
             };
-            Grid.SetColumn(_modeLabel, 1);
-            titleRow.Children.Add(_modeLabel);
+            sp.Children.Add(scroll);
 
-            _bestLapLabel = new TextBlock
-            {
-                FontSize = 11, FontFamily = new FontFamily("Consolas"),
-                Foreground = new SolidColorBrush(Color.FromRgb(76, 217, 100)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 3)
-            };
-            sp.Children.Add(_bestLapLabel);
-
-            // === TABLE MODE ===
-            _tableContainer = new Border();
-            var tableInner = new StackPanel();
-
-            var hdr = new Grid { Margin = new Thickness(2, 0, 2, 2) };
-            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
-            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(68) });
-            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
-            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
-            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
-            hdr.ColumnDefinitions.Add(new ColumnDefinition());
-            H(hdr, "LAP", 0); H(hdr, "TIME", 1); H(hdr, "S1", 2); H(hdr, "S2", 3); H(hdr, "S3", 4); H(hdr, "FUEL", 5);
-            tableInner.Children.Add(hdr);
-
-            _tablePanel = new StackPanel();
-            var scroll = new ScrollViewer { Content = _tablePanel, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, MaxHeight = 200 };
-            tableInner.Children.Add(scroll);
-            _tableContainer.Child = tableInner;
-            sp.Children.Add(_tableContainer);
-
-            // === GRAPH MODE ===
-            _graphCanvas = new Canvas
-            {
-                Width = GW, Height = GH,
-                ClipToBounds = true,
-                Background = new SolidColorBrush(Color.FromArgb(15, 255, 255, 255))
-            };
-            _graphContainer = new Border
-            {
-                Child = _graphCanvas,
-                CornerRadius = new CornerRadius(4),
-                Margin = new Thickness(0, 2, 0, 0),
-                Visibility = Visibility.Collapsed
-            };
-            sp.Children.Add(_graphContainer);
-
-            border.Child = sp;
-            Content = border;
+            root.Child = sp;
+            Content = root;
         }
 
+        // ────────────────────────────────────────────────────────────────────
+        // UPDATE
+        // ────────────────────────────────────────────────────────────────────
         public override void UpdateData()
         {
             var laps = DataService.GetLapHistory();
             if (laps.Count == _lastCount) return;
             _lastCount = laps.Count;
-
-            double bestTime = laps.Where(l => l.LapTime > 0).Select(l => l.LapTime).DefaultIfEmpty(0).Min();
-            _bestLapLabel.Text = bestTime > 0 ? $"Best: {Fmt(bestTime)}" : "";
-
-            if (_graphMode)
-                DrawGraph(laps, bestTime);
-            else
-                DrawTable(laps, bestTime);
+            Rebuild(laps);
         }
 
-        // ================================================================
-        // TABLE MODE
-        // ================================================================
-
-        private void DrawTable(List<LapRecord> laps, double bestTime)
+        private void Rebuild(List<LapRecord> laps)
         {
-            _tablePanel.Children.Clear();
-            foreach (var lap in laps.AsEnumerable().Reverse().Take(20))
+            // Session best
+            double best = laps.Where(l => l.LapTime > 0).Select(l => l.LapTime).DefaultIfEmpty(0).Min();
+            _bestTimeText.Text = best > 0 ? Fmt(best) : "--:--.---";
+
+            // Track temp from most recent lap
+            var latest = laps.LastOrDefault();
+            _bestTempText.Text = latest != null && latest.TrackTemp > 0
+                ? $"{latest.TrackTemp:F0}°C"
+                : "--°C";
+
+            // Rebuild rows — most recent at top
+            _rows.Children.Clear();
+            var reversed = laps.AsEnumerable().Reverse().Take(25).ToList();
+            for (int i = 0; i < reversed.Count; i++)
             {
-                bool isBest = bestTime > 0 && Math.Abs(lap.LapTime - bestTime) < 0.001;
-                Color tc = isBest ? Color.FromRgb(76, 217, 100) : Color.FromRgb(200, 210, 210);
-
-                var row = new Grid { Margin = new Thickness(2, 0, 2, 0) };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(68) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
-                row.ColumnDefinitions.Add(new ColumnDefinition());
-
-                V(row, $"{lap.LapNumber}", 0, tc, HorizontalAlignment.Left);
-                V(row, Fmt(lap.LapTime), 1, tc);
-                V(row, FS(lap.Sector1), 2, tc);
-                V(row, FS(lap.Sector2), 3, tc);
-                V(row, FS(lap.Sector3), 4, tc);
-                V(row, $"{lap.FuelRemaining:F1}", 5, Color.FromRgb(100, 120, 120));
-
-                if (isBest)
-                {
-                    var bg = new Border { Background = new SolidColorBrush(Color.FromArgb(15, 76, 217, 100)), CornerRadius = new CornerRadius(2) };
-                    Grid.SetColumnSpan(bg, 6);
-                    row.Children.Insert(0, bg);
-                }
-
-                _tablePanel.Children.Add(row);
+                var lap  = reversed[i];
+                var prev = i + 1 < reversed.Count ? reversed[i + 1] : null; // prev in time = next in reversed list
+                bool isBest = best > 0 && Math.Abs(lap.LapTime - best) < 0.001;
+                _rows.Children.Add(MakeLapRow(lap, prev, isBest, i));
             }
         }
 
-        // ================================================================
-        // GRAPH MODE — last 6 laps as line chart
-        // ================================================================
-
-        private void DrawGraph(List<LapRecord> laps, double bestTime)
+        // ────────────────────────────────────────────────────────────────────
+        // ROW BUILDER
+        // ────────────────────────────────────────────────────────────────────
+        private UIElement MakeLapRow(LapRecord lap, LapRecord? prev, bool isBest, int index)
         {
-            _graphCanvas.Children.Clear();
-            var recent = laps.AsEnumerable().Reverse().Take(GRAPH_LAPS).Reverse().ToList();
-            if (recent.Count < 2) return;
-
-            double minTime = recent.Where(l => l.LapTime > 0).Select(l => l.LapTime).DefaultIfEmpty(60).Min();
-            double maxTime = recent.Where(l => l.LapTime > 0).Select(l => l.LapTime).DefaultIfEmpty(120).Max();
-            double range = Math.Max(1, maxTime - minTime);
-            double padTop = 15, padBot = 20, padL = 5, padR = 5;
-            double drawW = GW - padL - padR;
-            double drawH = GH - padTop - padBot;
-
-            // Best time reference line
-            if (bestTime > 0)
+            var container = new Border
             {
-                double by = padTop + drawH - ((bestTime - minTime) / range * drawH);
-                by = Math.Clamp(by, padTop, padTop + drawH);
-                var bestLine = new Line { X1 = padL, X2 = GW - padR, Y1 = by, Y2 = by, Stroke = new SolidColorBrush(Color.FromArgb(60, 76, 217, 100)), StrokeThickness = 1, StrokeDashArray = new DoubleCollection { 4, 3 } };
-                _graphCanvas.Children.Add(bestLine);
-
-                var bestLabel = new TextBlock { Text = $"Best {Fmt(bestTime)}", FontSize = 7, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(Color.FromRgb(76, 217, 100)) };
-                Canvas.SetLeft(bestLabel, padL + 2); Canvas.SetTop(bestLabel, by - 10);
-                _graphCanvas.Children.Add(bestLabel);
-            }
-
-            // Lap time line
-            var points = new PointCollection();
-            for (int i = 0; i < recent.Count; i++)
-            {
-                double x = padL + (i / (double)(GRAPH_LAPS - 1)) * drawW;
-                double y = padTop + drawH - ((recent[i].LapTime - minTime) / range * drawH);
-                y = Math.Clamp(y, padTop, padTop + drawH);
-                points.Add(new Point(x, y));
-            }
-
-            var line = new Polyline
-            {
-                Points = points,
-                Stroke = new SolidColorBrush(Color.FromRgb(88, 166, 255)),
-                StrokeThickness = 2,
-                StrokeLineJoin = PenLineJoin.Round
+                BorderBrush     = new SolidColorBrush(CDivider),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding         = new Thickness(PadH, 5, PadH, 5)
             };
-            _graphCanvas.Children.Add(line);
 
-            // Dots + labels
-            for (int i = 0; i < recent.Count; i++)
+            // Subtle highlight for best lap
+            if (isBest)
+                container.Background = new SolidColorBrush(Color.FromArgb(18, 0x6B, 0x21, 0xA8));
+
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColLap) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColTime) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColDelta) });
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+
+            // LAP number
+            var lapTb = new TextBlock
             {
-                var pt = points[i];
-                bool isBest = bestTime > 0 && Math.Abs(recent[i].LapTime - bestTime) < 0.001;
-                Color dotCol = isBest ? Color.FromRgb(76, 217, 100) : Color.FromRgb(88, 166, 255);
+                Text              = $"{lap.LapNumber}",
+                FontFamily        = FBold,
+                FontSize          = 12,
+                FontWeight        = FontWeights.Bold,
+                Foreground        = new SolidColorBrush(isBest ? CYellow : CWhite),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(lapTb, 0);
+            row.Children.Add(lapTb);
 
-                var dot = new Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(dotCol) };
-                Canvas.SetLeft(dot, pt.X - 3.5); Canvas.SetTop(dot, pt.Y - 3.5);
-                _graphCanvas.Children.Add(dot);
+            // LAP TIME
+            var timeTb = new TextBlock
+            {
+                Text              = Fmt(lap.LapTime),
+                FontFamily        = FMono,
+                FontSize          = 12,
+                FontWeight        = isBest ? FontWeights.Bold : FontWeights.Normal,
+                Foreground        = new SolidColorBrush(isBest ? CYellow : CWhite),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(timeTb, 1);
+            row.Children.Add(timeTb);
 
-                // Time label above dot
-                var label = new TextBlock
-                {
-                    Text = Fmt(recent[i].LapTime), FontSize = 7,
-                    FontFamily = new FontFamily("Consolas"),
-                    Foreground = new SolidColorBrush(dotCol)
-                };
-                Canvas.SetLeft(label, pt.X - 18); Canvas.SetTop(label, pt.Y - 12);
-                _graphCanvas.Children.Add(label);
+            // DELTA vs previous lap
+            var (deltaStr, deltaColor) = CalcDelta(lap, prev);
+            var deltaTb = new TextBlock
+            {
+                Text              = deltaStr,
+                FontFamily        = FMono,
+                FontSize          = 11,
+                Foreground        = new SolidColorBrush(deltaColor),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(deltaTb, 2);
+            row.Children.Add(deltaTb);
 
-                // Lap number below
-                var lapNum = new TextBlock
-                {
-                    Text = $"L{recent[i].LapNumber}", FontSize = 7,
-                    FontFamily = new FontFamily("Consolas"),
-                    Foreground = new SolidColorBrush(Color.FromRgb(80, 100, 100))
-                };
-                Canvas.SetLeft(lapNum, pt.X - 8); Canvas.SetTop(lapNum, GH - padBot + 4);
-                _graphCanvas.Children.Add(lapNum);
-            }
+            // TEMP
+            var tempPanel = new StackPanel
+            {
+                Orientation       = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            tempPanel.Children.Add(MakeRoadIcon(13, CSubtle));
+            tempPanel.Children.Add(new TextBlock
+            {
+                Text       = lap.TrackTemp > 0 ? $" {lap.TrackTemp:F1}°c" : " --°c",
+                FontFamily = FBold,
+                FontSize   = 10,
+                Foreground = new SolidColorBrush(CSubtle),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            Grid.SetColumn(tempPanel, 3);
+            row.Children.Add(tempPanel);
+
+            container.Child = row;
+            return container;
         }
 
-        // ================================================================
-        // HELPERS
-        // ================================================================
-
-        private static void H(Grid g, string t, int c)
+        // ────────────────────────────────────────────────────────────────────
+        // HELPERS — BUILDERS
+        // ────────────────────────────────────────────────────────────────────
+        private static Border MakeTitleBar()
         {
-            var tb = new TextBlock { Text = t, FontSize = 7, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(Color.FromRgb(60, 80, 80)), HorizontalAlignment = c == 0 ? HorizontalAlignment.Left : HorizontalAlignment.Right };
-            Grid.SetColumn(tb, c); g.Children.Add(tb);
+            var bar = new Border
+            {
+                Background = new SolidColorBrush(CHeaderBg),
+                Padding    = new Thickness(0, 7, 0, 7)
+            };
+            bar.Child = new TextBlock
+            {
+                Text                    = "LAPTIME LOG",
+                FontFamily              = FBold,
+                FontSize                = 11,
+                FontWeight              = FontWeights.Bold,
+                Foreground              = new SolidColorBrush(CWhite),
+                HorizontalAlignment     = HorizontalAlignment.Center,
+                VerticalAlignment       = VerticalAlignment.Center
+            };
+            return bar;
         }
 
-        private static void V(Grid g, string t, int c, Color col, HorizontalAlignment ha = HorizontalAlignment.Right)
+        private static Border MakeHeaderRow()
         {
-            var tb = new TextBlock { Text = t, FontSize = 10, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(col), HorizontalAlignment = ha };
-            Grid.SetColumn(tb, c); g.Children.Add(tb);
+            var border = new Border
+            {
+                Background      = new SolidColorBrush(CHeaderBg),
+                BorderBrush     = new SolidColorBrush(CDivider),
+                BorderThickness = new Thickness(0, 1, 0, 1),
+                Padding         = new Thickness(PadH, 4, PadH, 4)
+            };
+
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColLap) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColTime) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColDelta) });
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+
+            Hdr(row, "LAP",   0, HorizontalAlignment.Left);
+            Hdr(row, "TIME",  1, HorizontalAlignment.Left);
+            Hdr(row, "DELTA", 2, HorizontalAlignment.Left);
+            Hdr(row, "TEMP.", 3, HorizontalAlignment.Left);
+
+            border.Child = row;
+            return border;
+        }
+
+        private static void Hdr(Grid g, string text, int col, HorizontalAlignment ha)
+        {
+            var tb = new TextBlock
+            {
+                Text                = text,
+                FontFamily          = FBold,
+                FontSize            = 9,
+                FontWeight          = FontWeights.SemiBold,
+                Foreground          = new SolidColorBrush(CYellow),
+                HorizontalAlignment = ha,
+                VerticalAlignment   = VerticalAlignment.Center
+            };
+            Grid.SetColumn(tb, col);
+            g.Children.Add(tb);
+        }
+
+        /// <summary>Road icon: white rounded rectangle with dashed center divider.</summary>
+        private static Canvas MakeRoadIcon(double sz, Color col)
+        {
+            double w = sz * 0.75, h = sz;
+            var canvas = new Canvas { Width = sz, Height = sz };
+            var outline = new Border
+            {
+                Width           = w,
+                Height          = h - 4,
+                BorderBrush     = new SolidColorBrush(col),
+                BorderThickness = new Thickness(1.2),
+                CornerRadius    = new CornerRadius(1.5)
+            };
+            Canvas.SetLeft(outline, (sz - w) / 2);
+            Canvas.SetTop(outline, 2);
+            canvas.Children.Add(outline);
+
+            var centerLine = new Line
+            {
+                X1 = sz / 2, Y1 = 4,
+                X2 = sz / 2, Y2 = sz - 2,
+                Stroke          = new SolidColorBrush(col),
+                StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 2, 2 }
+            };
+            canvas.Children.Add(centerLine);
+            return canvas;
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // HELPERS — LOGIC
+        // ────────────────────────────────────────────────────────────────────
+        private static (string text, Color color) CalcDelta(LapRecord lap, LapRecord? prev)
+        {
+            if (prev == null || lap.LapTime <= 0 || prev.LapTime <= 0)
+                return ("--,----", CGray);
+
+            double d = lap.LapTime - prev.LapTime;
+            string sign  = d >= 0 ? "+" : "-";
+            string abs   = $"{Math.Abs(d):F3}";
+            return d < 0
+                ? ($"{sign}{abs}", CGreen)
+                : ($"{sign}{abs}", CRed);
         }
 
         private static string Fmt(double t)
@@ -258,7 +378,5 @@ namespace LMUOverlay.Views.Overlays
             var ts = TimeSpan.FromSeconds(t);
             return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}.{ts.Milliseconds:D3}";
         }
-
-        private static string FS(double t) => t > 0 ? $"{t:F2}" : "--.--";
     }
 }

@@ -428,6 +428,7 @@ namespace LMUOverlay.Models
         public double FuelUsed { get; set; }
         public double FuelRemaining { get; set; }
         public string TireCompound { get; set; } = "";
+        public double TrackTemp { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }
 
