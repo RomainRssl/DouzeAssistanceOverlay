@@ -411,10 +411,12 @@ namespace LMUOverlay.Views
             return b;
         }
 
-        private Grid MakeArrowButtons(OverlaySettings s)
+        private UIElement MakeArrowButtons(OverlaySettings s)
         {
-            const double step = 10;
-            var grid = new Grid { HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 2, 0, 4) };
+            double step = 10;
+
+            // ── Arrow grid ────────────────────────────────────────────────────
+            var grid = new Grid { HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 2, 0, 2) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
@@ -422,23 +424,57 @@ namespace LMUOverlay.Views
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
 
-            var up = ArrowBtn("▲", () => s.PosY -= step);
-            Grid.SetColumn(up, 1); Grid.SetRow(up, 0);
-            grid.Children.Add(up);
-
-            var left = ArrowBtn("◄", () => s.PosX -= step);
-            Grid.SetColumn(left, 0); Grid.SetRow(left, 1);
-            grid.Children.Add(left);
-
+            var up    = ArrowBtn("▲", () => s.PosY -= step);
+            var left  = ArrowBtn("◄", () => s.PosX -= step);
             var right = ArrowBtn("►", () => s.PosX += step);
-            Grid.SetColumn(right, 2); Grid.SetRow(right, 1);
-            grid.Children.Add(right);
+            var down  = ArrowBtn("▼", () => s.PosY += step);
 
-            var down = ArrowBtn("▼", () => s.PosY += step);
-            Grid.SetColumn(down, 1); Grid.SetRow(down, 2);
-            grid.Children.Add(down);
+            Grid.SetColumn(up,    1); Grid.SetRow(up,    0); grid.Children.Add(up);
+            Grid.SetColumn(left,  0); Grid.SetRow(left,  1); grid.Children.Add(left);
+            Grid.SetColumn(right, 2); Grid.SetRow(right, 1); grid.Children.Add(right);
+            Grid.SetColumn(down,  1); Grid.SetRow(down,  2); grid.Children.Add(down);
 
-            return grid;
+            // ── Step slider ───────────────────────────────────────────────────
+            var stepRow = new Grid { Margin = new Thickness(0, 2, 0, 4) };
+            stepRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+            stepRow.ColumnDefinitions.Add(new ColumnDefinition());
+            stepRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+
+            stepRow.Children.Add(new TextBlock
+            {
+                Text = "Pas (px)", FontSize = 11, FontFamily = new FontFamily("Consolas"),
+                Foreground = B(150, 180, 180), VerticalAlignment = VerticalAlignment.Center
+            });
+
+            var stepVal = new TextBlock
+            {
+                Text = "10", FontSize = 11, FontFamily = new FontFamily("Consolas"),
+                Foreground = B(76, 217, 100),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(stepVal, 2);
+            stepRow.Children.Add(stepVal);
+
+            var stepSlider = new Slider
+            {
+                Minimum = 1, Maximum = 500, Value = 10,
+                Style = (Style)FindResource("ModernSlider"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            stepSlider.ValueChanged += (_, e) =>
+            {
+                step = Math.Round(e.NewValue);
+                stepVal.Text = ((int)step).ToString();
+            };
+            Grid.SetColumn(stepSlider, 1);
+            stepRow.Children.Add(stepSlider);
+
+            // ── Wrapper ───────────────────────────────────────────────────────
+            var wrapper = new StackPanel { Orientation = Orientation.Vertical };
+            wrapper.Children.Add(grid);
+            wrapper.Children.Add(stepRow);
+            return wrapper;
         }
 
         private Button ArrowBtn(string symbol, Action click)
