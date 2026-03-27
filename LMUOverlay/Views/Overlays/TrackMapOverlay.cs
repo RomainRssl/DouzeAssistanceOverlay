@@ -20,6 +20,71 @@ namespace LMUOverlay.Views.Overlays
     /// </summary>
     public class TrackMapOverlay : BaseOverlayWindow
     {
+        // ================================================================
+        // TRACK NAME → IMAGE FILE ALIASES
+        // Maps LMU/rF2 mTrackName patterns to the image filename (without extension).
+        // Both exact match and substring match are attempted.
+        // ================================================================
+        private static readonly Dictionary<string, string> _trackAliases = new(StringComparer.OrdinalIgnoreCase)
+        {
+            // Portimão
+            { "Algarve International Circuit", "portimao" },
+            { "Portimao",                      "portimao" },
+            { "Portimão",                      "portimao" },
+            // Imola
+            { "Imola",                                  "imola" },
+            { "Autodromo Enzo e Dino Ferrari",           "imola" },
+            { "Autodromo Internazionale Enzo e Dino Ferrari", "imola" },
+            // Interlagos
+            { "Interlagos",                    "interlagos" },
+            { "Autodromo Jose Carlos Pace",    "interlagos" },
+            { "Autódromo José Carlos Pace",    "interlagos" },
+            // Bahrain
+            { "Bahrain International Circuit", "bahrain" },
+            { "Bahrain",                       "bahrain" },
+            // COTA
+            { "Circuit of the Americas",       "cota" },
+            { "COTA",                          "cota" },
+            { "COTA National",                 "cota" },
+            // Le Mans
+            { "Circuit de la Sarthe",          "lemans" },
+            { "Le Mans",                       "lemans" },
+            // Fuji
+            { "Fuji",                          "fuji" },
+            { "Fuji International Speedway",   "fuji" },
+            { "Fuji Speedway",                 "fuji" },
+            // Lusail
+            { "Lusail International Circuit",  "lusail" },
+            { "Lusail",                        "lusail" },
+            // Monza
+            { "Monza",                         "monza" },
+            { "Autodromo Nazionale Monza",     "monza" },
+            // Sebring
+            { "Sebring",                       "sebring" },
+            { "Sebring International Raceway", "sebring" },
+            // Spa
+            { "Spa",                           "spa" },
+            { "Spa-Francorchamps",             "spa" },
+            { "Circuit de Spa",                "spa" },
+            // Paul Ricard
+            { "Paul Ricard",                   "paul_ricard" },
+            { "Circuit Paul Ricard",           "paul_ricard" },
+            // Silverstone
+            { "Silverstone",                   "silverstone" },
+        };
+
+        private static string ResolveTrackAlias(string trackName)
+        {
+            // 1. Exact match
+            if (_trackAliases.TryGetValue(trackName, out var alias)) return alias;
+            // 2. Substring match (sim may send "Spa-Francorchamps GP 2024" etc.)
+            foreach (var kv in _trackAliases)
+                if (trackName.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
+                    return kv.Value;
+            return trackName; // fallback: original name
+        }
+
+
         private readonly Canvas _mapCanvas;
         private readonly Image _trackImage;
         private const double MapW = 280, MapH = 280;
@@ -158,8 +223,11 @@ namespace LMUOverlay.Views.Overlays
             _hasImage = false;
             _trackImage.Source = null;
 
+            // Resolve alias first (e.g. "Spa-Francorchamps GP 2024" → "spa")
+            string resolved = ResolveTrackAlias(trackName);
+
             // Search for matching image in multiple locations
-            string[] searchPaths = GetImageSearchPaths(trackName);
+            string[] searchPaths = GetImageSearchPaths(resolved);
 
             foreach (var path in searchPaths)
             {
@@ -183,7 +251,7 @@ namespace LMUOverlay.Views.Overlays
             // Try embedded resource
             try
             {
-                string resName = SanitizeFileName(trackName);
+                string resName = SanitizeFileName(resolved);
                 var uri = new Uri($"pack://application:,,,/Resources/Tracks/{resName}.png", UriKind.Absolute);
                 var bmp = new BitmapImage(uri);
                 _trackImage.Source = bmp;
