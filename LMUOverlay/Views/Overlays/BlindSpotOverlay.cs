@@ -30,13 +30,19 @@ namespace LMUOverlay.Views.Overlays
         // ── Refs for live update ──────────────────────────────────────────────
         private readonly Border           _leftSq,    _rightSq;
         private readonly DropShadowEffect _leftGlow,  _rightGlow;
+        private readonly StackPanel       _row;
+        private readonly Border           _gapBorder;
 
         public BlindSpotOverlay(DataService ds, OverlaySettings s) : base(ds, s)
         {
-            var row = new StackPanel
+            double scale = s.CustomOptions.TryGetValue("Scale", out var sv) ? Convert.ToDouble(sv) : 1.0;
+            double gap   = s.CustomOptions.TryGetValue("Gap",   out var gv) ? Convert.ToDouble(gv) : 10;
+
+            _row = new StackPanel
             {
-                Orientation = Orientation.Horizontal,
-                Background  = Brushes.Transparent
+                Orientation     = Orientation.Horizontal,
+                Background      = Brushes.Transparent,
+                LayoutTransform = new ScaleTransform(scale, scale)
             };
 
             var (lEl, lSq, lFx) = MakePanel("LEFT");
@@ -45,11 +51,20 @@ namespace LMUOverlay.Views.Overlays
             _leftSq   = lSq;  _leftGlow  = lFx;
             _rightSq  = rSq;  _rightGlow = rFx;
 
-            row.Children.Add(lEl);
-            row.Children.Add(new Border { Width = 10, Background = Brushes.Transparent });
-            row.Children.Add(rEl);
+            _gapBorder = new Border { Width = gap, Background = Brushes.Transparent };
 
-            Content = row;
+            _row.Children.Add(lEl);
+            _row.Children.Add(_gapBorder);
+            _row.Children.Add(rEl);
+
+            Content = _row;
+        }
+
+        /// <summary>Called live from the settings sliders.</summary>
+        public void UpdatePanelLayout(double scale, double gap)
+        {
+            _row.LayoutTransform = new ScaleTransform(scale, scale);
+            _gapBorder.Width     = gap;
         }
 
         // ── Panel builder ─────────────────────────────────────────────────────
