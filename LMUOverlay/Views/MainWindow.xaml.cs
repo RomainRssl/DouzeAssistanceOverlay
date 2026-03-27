@@ -247,14 +247,14 @@ namespace LMUOverlay.Views
                 double curScale = _config.BlindSpot.CustomOptions.TryGetValue("Scale", out var sv) ? Convert.ToDouble(sv) : 1.0;
                 double curGap   = _config.BlindSpot.CustomOptions.TryGetValue("Gap",   out var gv) ? Convert.ToDouble(gv) : 10;
 
-                AddSlider("Taille des spots", curScale, 0.4, 2.0, v =>
+                AddSlider("Taille des spots", curScale, 0.4, 4.0, v =>
                 {
                     _config.BlindSpot.CustomOptions["Scale"] = v;
                     double g = _config.BlindSpot.CustomOptions.TryGetValue("Gap", out var g2) ? Convert.ToDouble(g2) : 10;
                     _overlayManager.GetOverlay<BlindSpotOverlay>("BlindSpot")?.UpdatePanelLayout(v, g);
                 }, "F2");
 
-                AddSlider("Écartement", curGap, 0, 200, v =>
+                AddSlider("Écartement", curGap, 0, 1000, v =>
                 {
                     _config.BlindSpot.CustomOptions["Gap"] = v;
                     double sc = _config.BlindSpot.CustomOptions.TryGetValue("Scale", out var s2) ? Convert.ToDouble(s2) : 1.0;
