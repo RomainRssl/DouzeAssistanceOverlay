@@ -254,7 +254,7 @@ namespace LMUOverlay.Views
                     _overlayManager.GetOverlay<BlindSpotOverlay>("BlindSpot")?.UpdatePanelLayout(v, g);
                 }, "F2");
 
-                AddSlider("Écartement", curGap, 0, 1000, v =>
+                AddSlider("Écartement", curGap, 0, 6000, v =>
                 {
                     _config.BlindSpot.CustomOptions["Gap"] = v;
                     double sc = _config.BlindSpot.CustomOptions.TryGetValue("Scale", out var s2) ? Convert.ToDouble(s2) : 1.0;
