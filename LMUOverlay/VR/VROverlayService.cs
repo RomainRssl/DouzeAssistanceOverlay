@@ -11,7 +11,7 @@ namespace LMUOverlay.VR
     /// Manages SteamVR overlay rendering for all active overlays.
     /// Captures WPF visual content and submits it as VR overlay textures.
     /// </summary>
-    public class VROverlayService : IDisposable
+    public class VROverlayService : IVRService
     {
         private VROverlayInterface? _overlay;
         private readonly Dictionary<string, VROverlayInstance> _vrOverlays = new();

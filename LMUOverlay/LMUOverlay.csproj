@@ -25,6 +25,8 @@
     <PackageReference Include="ClosedXML" Version="0.103.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- OpenXR backend (D3D11 via P/Invoke, no extra GPU package needed) -->
+    <PackageReference Include="Silk.NET.OpenXR" Version="2.22.0" />
   </ItemGroup>
 
   <!-- OpenVR DLL: copy to output if present (optional for VR support) -->

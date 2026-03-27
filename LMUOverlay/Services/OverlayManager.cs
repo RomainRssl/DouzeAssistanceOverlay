@@ -17,12 +17,12 @@ namespace LMUOverlay.Services
         private readonly Dictionary<string, BaseOverlayWindow> _overlays = new();
         private bool _initialized;
 
-        // VR
-        private VROverlayService? _vrService;
+        // VR — backend abstrait (SteamVR ou OpenXR selon le runtime actif)
+        private IVRService? _vrService;
 
         public bool IsConnected => _reader.IsConnected;
         public DataService DataService => _dataService;
-        public VROverlayService? VRService => _vrService;
+        public IVRService? VRService => _vrService;
         public bool IsVRActive => _vrService?.IsVRActive ?? false;
 
         public event EventHandler<bool>? ConnectionChanged;
@@ -102,19 +102,42 @@ namespace LMUOverlay.Services
         {
             errorMessage = "";
 
-            _vrService = new VROverlayService();
-            if (!_vrService.Initialize())
+            // ── Sélection automatique du backend VR ───────────────────────────
+            // Priorité : OpenXR natif si disponible ET si XR_EXTX_overlay est
+            // supporté → sinon fallback sur SteamVR (IVROverlay).
+            IVRService candidate;
+
+            if (OpenXRService.IsRuntimeAvailable())
             {
-                errorMessage = _vrService.LastError;
-                _vrService = null;
-                return false;
+                var oxr = new OpenXRService();
+                if (oxr.Initialize())
+                {
+                    candidate = oxr;
+                    goto BackendReady;
+                }
+                // OpenXR disponible mais init échouée (ex. runtime sans XR_EXTX_overlay)
+                // On note l'erreur et on tente SteamVR
+                System.Diagnostics.Debug.WriteLine(
+                    $"[VR] OpenXR non utilisable ({oxr.LastError}), tentative SteamVR…");
+                oxr.Dispose();
             }
 
-            // Register all overlay windows with VR
-            foreach (var (key, window) in _overlays)
             {
-                _vrService.RegisterOverlay(key, window, window.Settings);
+                var svr = new VROverlayService();
+                if (!svr.Initialize())
+                {
+                    errorMessage = svr.LastError;
+                    svr.Dispose();
+                    return false;
+                }
+                candidate = svr;
             }
+
+            BackendReady:
+            _vrService = candidate;
+
+            foreach (var (key, window) in _overlays)
+                _vrService.RegisterOverlay(key, window, window.Settings);
 
             _vrService.VRStatusChanged += (s, active) => VRStatusChanged?.Invoke(this, active);
             VRStatusChanged?.Invoke(this, true);
@@ -219,7 +242,13 @@ namespace LMUOverlay.Services
                 }
             }
 
-            // Update VR overlays
+            // Update VR overlays (SteamVR ou OpenXR selon le backend actif)
+            if (_vrService is OpenXRService oxrSvc)
+            {
+                // OpenXR : s'assurer que les swapchains sont créés (nécessite le layout WPF)
+                foreach (var (key, window) in _overlays)
+                    oxrSvc.EnsureSwapchainForOverlay(key, window);
+            }
             try { _vrService?.UpdateAll(); }
             catch (Exception ex)
             {
