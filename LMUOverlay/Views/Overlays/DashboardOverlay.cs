@@ -21,8 +21,16 @@ namespace LMUOverlay.Views.Overlays
         private readonly TextBlock _rpmValueText;
         private int _flashCounter;
 
+        // Pit limiter blink
+        private int _pitFlashCounter;
+
         // Info cells
         private readonly Dictionary<string, (Border Cell, TextBlock Value)> _cells = new();
+
+        // Special refs for pit-limiter LAP cell
+        private Border? _lapCellBorder;
+        private TextBlock? _lapLabel;
+        private TextBlock? _lapValue;
 
         public DashboardOverlay(DataService ds, OverlaySettings s, DashboardDisplayConfig cfg) : base(ds, s)
         {
@@ -125,20 +133,20 @@ namespace LMUOverlay.Views.Overlays
             grid.Children.Add(gearBorder);
 
             // --- ROW 0: POS | FUEL | FUEL/LAP | [GEAR] | FUEL LEFT | LAPS LEFT | LAP ---
-            Cell(grid, "ShowPosition", "POS", 0, 0, OverlayHelper.BgCell);
-            Cell(grid, "ShowFuel", "FUEL", 0, 1, OverlayHelper.BgCellAlt);
-            Cell(grid, "ShowFuelPerLap", "FUEL/LAP", 0, 2, OverlayHelper.BgCellAlt);
-            Cell(grid, "ShowTimeRemaining", "FUEL LEFT", 0, 4, OverlayHelper.BgCellAlt);
-            Cell(grid, "ShowLapsRemaining", "LAPS LEFT", 0, 5, OverlayHelper.BgCell);
-            Cell(grid, "ShowLap", "LAP", 0, 6, OverlayHelper.BgCell);
+            Cell(grid, "ShowPosition",    "POS",       0, 0, OverlayHelper.BgCell);
+            Cell(grid, "ShowFuel",        "FUEL",      0, 1, OverlayHelper.BgCellAlt);
+            Cell(grid, "ShowFuelPerLap",  "FUEL/LAP",  0, 2, OverlayHelper.BgCellAlt);
+            Cell(grid, "ShowTimeRemaining","FUEL LEFT", 0, 4, OverlayHelper.BgCellAlt);
+            Cell(grid, "ShowLapsRemaining","LAPS LEFT", 0, 5, OverlayHelper.BgCell);
+            CellLap(grid,                              0, 6, OverlayHelper.BgCell);
 
-            // --- ROW 1: ENERGY | ENRG/LAP | (empty) | [GEAR] | TC | TC SLIP | ABS ---
-            Cell(grid, "ShowEnergy", "ENERGY", 1, 0, OverlayHelper.BgBlue);
-            Cell(grid, "ShowEnergyPerLap", "ENRG/LAP", 1, 1, OverlayHelper.BgBlue);
-            Cell(grid, "ShowTCCut", "TC CUT", 1, 2, OverlayHelper.BgOrange);
-            Cell(grid, "ShowTC", "TC", 1, 4, OverlayHelper.BgGreen);
-            Cell(grid, "ShowTCSlip", "TC SLIP", 1, 5, OverlayHelper.BgGreen);
-            Cell(grid, "ShowABS", "ABS", 1, 6, OverlayHelper.BgRed);
+            // --- ROW 1: ENERGY | ENRG/LAP | WATER | [GEAR] | OIL | OVERHEAT | ABS ---
+            Cell(grid, "ShowEnergy",      "ENERGY",    1, 0, OverlayHelper.BgBlue);
+            Cell(grid, "ShowEnergyPerLap","ENRG/LAP",  1, 1, OverlayHelper.BgBlue);
+            Cell(grid, "ShowWaterTemp",   "WATER",     1, 2, OverlayHelper.BgCellAlt);
+            Cell(grid, "ShowOilTemp",     "OIL",       1, 4, OverlayHelper.BgOrange);
+            Cell(grid, "ShowOverheating", "OVERHEAT",  1, 5, OverlayHelper.BgRed);
+            Cell(grid, "ShowABS",         "ABS",       1, 6, OverlayHelper.BgRed);
 
             mainStack.Children.Add(grid);
             border.Child = mainStack;
@@ -161,6 +169,26 @@ namespace LMUOverlay.Views.Overlays
             Grid.SetRow(cellBorder, row); Grid.SetColumn(cellBorder, col);
             grid.Children.Add(cellBorder);
             _cells[cfgKey] = (cellBorder, val);
+        }
+
+        /// <summary>Special LAP cell that can flash "PIT" when pit limiter is active.</summary>
+        private void CellLap(Grid grid, int row, int col, Color bg)
+        {
+            _lapCellBorder = OverlayHelper.MakeCell(bg);
+            var sp = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _lapLabel = OverlayHelper.MakeLabel("LAP");
+            _lapValue = OverlayHelper.MakeValue(14);
+            sp.Children.Add(_lapLabel);
+            sp.Children.Add(_lapValue);
+            _lapCellBorder.Child = sp;
+
+            Grid.SetRow(_lapCellBorder, row); Grid.SetColumn(_lapCellBorder, col);
+            grid.Children.Add(_lapCellBorder);
+            _cells["ShowLap"] = (_lapCellBorder, _lapValue);
         }
 
         public override void UpdateData()
@@ -210,7 +238,40 @@ namespace LMUOverlay.Views.Overlays
 
             // ---- CELLS ----
             Set("ShowPosition", $"P{d.Position}");
-            Set("ShowLap", $"{d.TotalLaps}");
+
+            // ---- LAP cell — flashes "PIT" when pit limiter is active ----
+            if (_lapCellBorder != null && _lapLabel != null && _lapValue != null)
+            {
+                bool lapVisible = _cfg.ShowLap;
+                _lapCellBorder.Visibility = lapVisible ? Visibility.Visible : Visibility.Collapsed;
+                if (lapVisible)
+                {
+                    if (d.PitLimiter)
+                    {
+                        _pitFlashCounter++;
+                        bool pitOn = (_pitFlashCounter / 4) % 2 == 0;
+                        _lapCellBorder.Background = new SolidColorBrush(
+                            pitOn ? Color.FromRgb(0, 60, 30) : Color.FromRgb(0, 20, 10));
+                        _lapLabel.Text = "PIT";
+                        _lapLabel.Foreground = new SolidColorBrush(
+                            pitOn ? Color.FromRgb(0, 255, 130) : Color.FromRgb(0, 100, 60));
+                        _lapValue.Text = "LIMITER";
+                        _lapValue.FontSize = 9;
+                        _lapValue.Foreground = new SolidColorBrush(
+                            pitOn ? Color.FromRgb(0, 220, 110) : Color.FromRgb(0, 80, 50));
+                    }
+                    else
+                    {
+                        _pitFlashCounter = 0;
+                        _lapCellBorder.Background = new SolidColorBrush(OverlayHelper.BgCell);
+                        _lapLabel.Text = "LAP";
+                        _lapLabel.Foreground = new SolidColorBrush(OverlayHelper.TextSecondary);
+                        _lapValue.Text = $"{d.TotalLaps}";
+                        _lapValue.FontSize = 14;
+                        _lapValue.Foreground = new SolidColorBrush(OverlayHelper.TextValue);
+                    }
+                }
+            }
 
             if (SetVis("ShowFuel"))
             {
@@ -249,10 +310,47 @@ namespace LMUOverlay.Views.Overlays
             }
 
             Set("ShowEnergyPerLap", d.EnergyPerLap > 0 ? $"{d.EnergyPerLap:F1}%" : "--");
-            Set("ShowTC", $"{d.TC}");
             Set("ShowABS", $"{d.ABS}");
-            Set("ShowTCSlip", $"{d.TCSlipAngle}");
-            Set("ShowTCCut", $"{d.TCPowerCut}");
+
+            // ---- WATER TEMP ----
+            if (SetVis("ShowWaterTemp"))
+            {
+                var c = _cells["ShowWaterTemp"];
+                c.Value.Text = d.WaterTemp > 0 ? $"{d.WaterTemp:F0}°C" : "--";
+                c.Value.Foreground = new SolidColorBrush(
+                    d.WaterTemp > 110 ? OverlayHelper.AccRed :
+                    d.WaterTemp > 100 ? OverlayHelper.AccYellow :
+                    OverlayHelper.AccGreen);
+            }
+
+            // ---- OIL TEMP ----
+            if (SetVis("ShowOilTemp"))
+            {
+                var c = _cells["ShowOilTemp"];
+                c.Value.Text = d.OilTemp > 0 ? $"{d.OilTemp:F0}°C" : "--";
+                c.Value.Foreground = new SolidColorBrush(
+                    d.OilTemp > 140 ? OverlayHelper.AccRed :
+                    d.OilTemp > 130 ? OverlayHelper.AccYellow :
+                    OverlayHelper.AccGreen);
+            }
+
+            // ---- OVERHEATING ----
+            if (SetVis("ShowOverheating"))
+            {
+                var c = _cells["ShowOverheating"];
+                if (d.Overheating)
+                {
+                    c.Value.Text = "⚠ HOT";
+                    c.Value.Foreground = new SolidColorBrush(OverlayHelper.AccRed);
+                    c.Cell.Background = new SolidColorBrush(Color.FromArgb(180, 100, 0, 0));
+                }
+                else
+                {
+                    c.Value.Text = "OK";
+                    c.Value.Foreground = new SolidColorBrush(OverlayHelper.AccGreen);
+                    c.Cell.Background = new SolidColorBrush(OverlayHelper.BgRed);
+                }
+            }
         }
 
         private void Set(string key, string text)

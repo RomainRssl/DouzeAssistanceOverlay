@@ -785,12 +785,13 @@ namespace LMUOverlay.Services
                 EnergyLapsRemaining = (int)fuel.EnergyAutonomy,
                 LapsRemaining = fuel.RaceLapsRemaining,
                 TimeRemaining = fuel.TimeRemaining,
-                TC = ext.mPhysics.mTractionControl,
                 ABS = ext.mPhysics.mAntiLockBrakes,
                 Stability = ext.mPhysics.mStabilityControl,
                 ElectricMotorState = tel.mElectricBoostMotorState,
-                TCSlipAngle = 0,
-                TCPowerCut = 0,
+                WaterTemp = tel.mEngineWaterTemp,
+                OilTemp = tel.mEngineOilTemp,
+                Overheating = tel.mOverheating != 0,
+                PitLimiter = scr.mInPits != 0 || scr.mPitState >= 2,
             };
         }
 

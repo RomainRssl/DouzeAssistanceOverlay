@@ -499,12 +499,13 @@ namespace LMUOverlay.Models
         public int EnergyLapsRemaining { get; set; }
         public int LapsRemaining { get; set; }
         public double TimeRemaining { get; set; }
-        public byte TC { get; set; }
         public byte ABS { get; set; }
         public byte Stability { get; set; }
         public byte ElectricMotorState { get; set; }
-        public byte TCSlipAngle { get; set; }
-        public byte TCPowerCut { get; set; }
+        public double WaterTemp { get; set; }
+        public double OilTemp { get; set; }
+        public bool Overheating { get; set; }
+        public bool PitLimiter { get; set; }
     }
 
     public class SessionInfo
@@ -619,10 +620,10 @@ namespace LMUOverlay.Models
         public bool ShowEnergyPerLap { get; set; } = true;
         public bool ShowLapsRemaining { get; set; } = true;
         public bool ShowTimeRemaining { get; set; } = true;
-        public bool ShowTC { get; set; } = true;
         public bool ShowABS { get; set; } = true;
-        public bool ShowTCSlip { get; set; } = true;
-        public bool ShowTCCut { get; set; } = true;
+        public bool ShowWaterTemp { get; set; } = true;
+        public bool ShowOilTemp { get; set; } = true;
+        public bool ShowOverheating { get; set; } = true;
 
         public static readonly (string Key, string Label)[] AllItems =
         {
@@ -637,10 +638,10 @@ namespace LMUOverlay.Models
             ("ShowEnergyPerLap", "Conso énergie/tour"),
             ("ShowLapsRemaining", "Tours restants"),
             ("ShowTimeRemaining", "Temps restant"),
-            ("ShowTC", "Traction Control"),
             ("ShowABS", "ABS"),
-            ("ShowTCSlip", "TC Slip Angle"),
-            ("ShowTCCut", "TC Power Cut"),
+            ("ShowWaterTemp", "Temp. eau moteur"),
+            ("ShowOilTemp", "Temp. huile moteur"),
+            ("ShowOverheating", "Surchauffe moteur"),
         };
 
         public bool IsVisible(string key)
