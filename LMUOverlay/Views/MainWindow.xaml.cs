@@ -243,23 +243,7 @@ namespace LMUOverlay.Views
             }
             if (key == "BlindSpot")
             {
-                AddSep();
-                double ledW = _config.BlindSpot.CustomOptions.TryGetValue("LedWidth",  out var cw) ? Convert.ToDouble(cw) : 8;
-                double ledH = _config.BlindSpot.CustomOptions.TryGetValue("LedHeight", out var ch) ? Convert.ToDouble(ch) : 50;
-                AddSlider("Largeur LED", ledW, 4, 40, v =>
-                {
-                    _config.BlindSpot.CustomOptions["LedWidth"] = v;
-                    _overlayManager.GetOverlay<BlindSpotOverlay>("BlindSpot")?.UpdateLedSize(
-                        v,
-                        _config.BlindSpot.CustomOptions.TryGetValue("LedHeight", out var h2) ? Convert.ToDouble(h2) : 50);
-                }, "F0");
-                AddSlider("Hauteur LED", ledH, 20, 200, v =>
-                {
-                    _config.BlindSpot.CustomOptions["LedHeight"] = v;
-                    _overlayManager.GetOverlay<BlindSpotOverlay>("BlindSpot")?.UpdateLedSize(
-                        _config.BlindSpot.CustomOptions.TryGetValue("LedWidth", out var w2) ? Convert.ToDouble(w2) : 8,
-                        v);
-                }, "F0");
+                // No extra settings — panel size is fixed in the new HUD design
             }
             if (key == "Dashboard")
             {

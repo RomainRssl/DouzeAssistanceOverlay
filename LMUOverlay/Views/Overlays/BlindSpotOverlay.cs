@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using LMUOverlay.Models;
 using LMUOverlay.Services;
@@ -8,144 +9,171 @@ using LMUOverlay.Services;
 namespace LMUOverlay.Views.Overlays
 {
     /// <summary>
-    /// Blind spot indicator: two LED bars (left/right) that glow orange
-    /// when a car is alongside in the blind spot zone.
-    /// Intensity varies with proximity.
+    /// Blind spot indicator: two HUD-style panels (LEFT / RIGHT).
+    /// Each shows a glowing rounded square when a car is alongside.
+    /// Corner-bracket decoration, "BLIND SPOT" top label, side name bottom label.
     /// </summary>
     public class BlindSpotOverlay : BaseOverlayWindow
     {
-        private readonly Border _leftLed, _rightLed;
-        private readonly Grid _container;
+        // ── Palette ──────────────────────────────────────────────────────────
+        private static readonly Color CBackground = Color.FromRgb(0x16, 0x16, 0x16);
+        private static readonly Color CBracket    = Color.FromRgb(0xA0, 0xA0, 0xA0);
+        private static readonly Color CLabel      = Color.FromRgb(0xCC, 0xCC, 0xCC);
+        private static readonly Color CSqOff      = Color.FromRgb(0x20, 0x16, 0x06);
+
+        // ── Dimensions ───────────────────────────────────────────────────────
+        private const double PanelW   = 130;
+        private const double PanelH   = 148;
+        private const double SqSize   = 84;
+        private const double SqRadius = 20;
+
+        // ── Refs for live update ──────────────────────────────────────────────
+        private readonly Border           _leftSq,    _rightSq;
+        private readonly DropShadowEffect _leftGlow,  _rightGlow;
 
         public BlindSpotOverlay(DataService ds, OverlaySettings s) : base(ds, s)
         {
-            double w = GetLedW(s);
-            double h = GetLedH(s);
-
-            _container = new Grid
+            var row = new StackPanel
             {
-                Width = 300,
-                Height = h + 10,
-                Background = Brushes.Transparent
+                Orientation = Orientation.Horizontal,
+                Background  = Brushes.Transparent
             };
-            _container.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            _container.ColumnDefinitions.Add(new ColumnDefinition());
-            _container.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            _leftLed = MakeLed(w, h);
-            Grid.SetColumn(_leftLed, 0);
-            _container.Children.Add(_leftLed);
+            var (lEl, lSq, lFx) = MakePanel("LEFT");
+            var (rEl, rSq, rFx) = MakePanel("RIGHT");
 
-            _rightLed = MakeLed(w, h);
-            Grid.SetColumn(_rightLed, 2);
-            _container.Children.Add(_rightLed);
+            _leftSq   = lSq;  _leftGlow  = lFx;
+            _rightSq  = rSq;  _rightGlow = rFx;
 
-            Content = _container;
+            row.Children.Add(lEl);
+            row.Children.Add(new Border { Width = 10, Background = Brushes.Transparent });
+            row.Children.Add(rEl);
+
+            Content = row;
         }
 
-        private static double GetLedW(OverlaySettings s) =>
-            s.CustomOptions.TryGetValue("LedWidth", out var v) ? Convert.ToDouble(v) : 8;
-
-        private static double GetLedH(OverlaySettings s) =>
-            s.CustomOptions.TryGetValue("LedHeight", out var v) ? Convert.ToDouble(v) : 50;
-
-        public void UpdateLedSize(double w, double h)
+        // ── Panel builder ─────────────────────────────────────────────────────
+        private static (UIElement Panel, Border Square, DropShadowEffect GlowFx) MakePanel(string side)
         {
-            _container.Height = h + 10;
-            foreach (var led in new[] { _leftLed, _rightLed })
+            // Root panel
+            var root = new Border
             {
-                led.Width = w;
-                led.Height = h;
-                led.CornerRadius = new CornerRadius(Math.Max(2, w / 2));
-                if (led.Child is StackPanel sp)
-                {
-                    double dotSize = Math.Max(3, w - 2);
-                    foreach (var child in sp.Children)
-                        if (child is Ellipse e) { e.Width = dotSize; e.Height = dotSize; }
-                }
-            }
+                Width        = PanelW,
+                Height       = PanelH,
+                Background   = new SolidColorBrush(CBackground),
+                CornerRadius = new CornerRadius(8),
+                ClipToBounds = false
+            };
+            var cv = new Canvas { Width = PanelW, Height = PanelH };
+            root.Child = cv;
+
+            // ── Corner brackets ───────────────────────────────────────────────
+            const double M  = 7;   // margin from edge
+            const double BL = 14;  // bracket arm length
+            const double BW = 1.5; // stroke width
+
+            // Top-left
+            Ln(cv, M,          M,       M + BL,     M,      BW);
+            Ln(cv, M,          M,       M,          M + BL, BW);
+            // Top-right
+            Ln(cv, PanelW-M-BL, M,      PanelW-M,   M,      BW);
+            Ln(cv, PanelW-M,    M,      PanelW-M,   M + BL, BW);
+            // Bottom-left
+            Ln(cv, M,           PanelH-M, M + BL,   PanelH-M, BW);
+            Ln(cv, M,           PanelH-M-BL, M,     PanelH-M, BW);
+            // Bottom-right
+            Ln(cv, PanelW-M-BL, PanelH-M, PanelW-M, PanelH-M, BW);
+            Ln(cv, PanelW-M,    PanelH-M-BL, PanelW-M, PanelH-M, BW);
+
+            // ── "BLIND SPOT" top label ────────────────────────────────────────
+            AddCentredLabel(cv, "BLIND SPOT", 14);
+
+            // ── Glowing square (centred) ──────────────────────────────────────
+            double sqTop = (PanelH - SqSize) / 2 - 4;
+
+            var glow = new DropShadowEffect
+            {
+                Color       = Colors.Orange,
+                ShadowDepth = 0,
+                BlurRadius  = 0,
+                Opacity     = 0,
+                RenderingBias = RenderingBias.Quality
+            };
+
+            var square = new Border
+            {
+                Width        = SqSize,
+                Height       = SqSize,
+                CornerRadius = new CornerRadius(SqRadius),
+                Background   = new SolidColorBrush(CSqOff),
+                Effect       = glow
+            };
+            Canvas.SetLeft(square, (PanelW - SqSize) / 2);
+            Canvas.SetTop(square,  sqTop);
+            cv.Children.Add(square);
+
+            // ── Side label at bottom ──────────────────────────────────────────
+            AddCentredLabel(cv, side, PanelH - 22);
+
+            return (root, square, glow);
         }
 
-        private static Border MakeLed(double ledW, double ledH)
+        // ── Drawing helpers ───────────────────────────────────────────────────
+        private static void Ln(Canvas c, double x1, double y1, double x2, double y2, double t)
         {
-            var border = new Border
+            c.Children.Add(new Line
             {
-                Width = ledW, Height = ledH,
-                CornerRadius = new CornerRadius(Math.Max(2, ledW / 2)),
-                Background = new SolidColorBrush(Color.FromArgb(20, 255, 165, 0)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            double dotSize = Math.Max(3, ledW - 2);
-            var stack = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-
-            for (int i = 0; i < 3; i++)
-            {
-                stack.Children.Add(new Ellipse
-                {
-                    Width = dotSize, Height = dotSize,
-                    Fill = new SolidColorBrush(Color.FromArgb(30, 255, 165, 0)),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 2, 0, 2)
-                });
-            }
-
-            border.Child = stack;
-            return border;
+                X1 = x1, Y1 = y1, X2 = x2, Y2 = y2,
+                Stroke             = new SolidColorBrush(CBracket),
+                StrokeThickness    = t,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap   = PenLineCap.Round
+            });
         }
 
+        private static void AddCentredLabel(Canvas c, string text, double y)
+        {
+            var tb = new TextBlock
+            {
+                Text                = text,
+                FontSize            = 8,
+                FontWeight          = FontWeights.SemiBold,
+                FontFamily          = new FontFamily("Consolas"),
+                Foreground          = new SolidColorBrush(CLabel),
+                Width               = PanelW,
+                TextAlignment       = TextAlignment.Center
+            };
+            Canvas.SetLeft(tb, 0);
+            Canvas.SetTop(tb, y);
+            c.Children.Add(tb);
+        }
+
+        // ── Data update ───────────────────────────────────────────────────────
         public override void UpdateData()
         {
             var (left, right) = DataService.GetBlindSpots();
-
-            UpdateLed(_leftLed, left);
-            UpdateLed(_rightLed, right);
+            Apply(_leftSq,  _leftGlow,  left);
+            Apply(_rightSq, _rightGlow, right);
         }
 
-        private static void UpdateLed(Border led, double intensity)
+        private static void Apply(Border sq, DropShadowEffect fx, double intensity)
         {
             if (intensity <= 0)
             {
-                // Off — very subtle
-                led.Background = new SolidColorBrush(Color.FromArgb(15, 255, 165, 0));
-                if (led.Child is StackPanel sp)
-                {
-                    foreach (var child in sp.Children)
-                        if (child is Ellipse e)
-                            e.Fill = new SolidColorBrush(Color.FromArgb(20, 255, 165, 0));
-                }
+                sq.Background = new SolidColorBrush(CSqOff);
+                fx.Opacity    = 0;
+                fx.BlurRadius = 0;
+                return;
             }
-            else
-            {
-                // On — intensity controls opacity and color
-                byte alpha = (byte)(80 + intensity * 175); // 80-255
-                byte dotAlpha = (byte)(100 + intensity * 155);
 
-                // At high intensity: shift to red
-                Color ledColor, dotColor;
-                if (intensity > 0.7)
-                {
-                    ledColor = Color.FromArgb(alpha, 255, 80, 0);
-                    dotColor = Color.FromArgb(dotAlpha, 255, 100, 0);
-                }
-                else
-                {
-                    ledColor = Color.FromArgb(alpha, 255, 165, 0);
-                    dotColor = Color.FromArgb(dotAlpha, 255, 190, 0);
-                }
+            // Orange → red-orange at high proximity
+            byte g = intensity > 0.7 ? (byte)65 : (byte)(int)(165 - intensity * 130);
+            var col = Color.FromRgb(255, g, 0);
 
-                led.Background = new SolidColorBrush(ledColor);
-                if (led.Child is StackPanel sp)
-                {
-                    foreach (var child in sp.Children)
-                        if (child is Ellipse e)
-                            e.Fill = new SolidColorBrush(dotColor);
-                }
-            }
+            sq.Background = new SolidColorBrush(col);
+            fx.Color      = col;
+            fx.Opacity    = 0.35 + intensity * 0.65;  // 0.35 → 1.0
+            fx.BlurRadius = 8 + intensity * 28;        // 8 → 36 px
         }
     }
 }
