@@ -11,7 +11,7 @@ namespace LMUOverlay.Views.Overlays
     /// <summary>
     /// Blind spot indicator: two HUD-style panels (LEFT / RIGHT).
     /// Each shows a glowing rounded square when a car is alongside.
-    /// Corner-bracket decoration, "BLIND SPOT" top label, side name bottom label.
+    /// Size is controlled via Viewbox (clean scaling), gap via a spacer Border.
     /// </summary>
     public class BlindSpotOverlay : BaseOverlayWindow
     {
@@ -21,16 +21,16 @@ namespace LMUOverlay.Views.Overlays
         private static readonly Color CLabel      = Color.FromRgb(0xCC, 0xCC, 0xCC);
         private static readonly Color CSqOff      = Color.FromRgb(0x20, 0x16, 0x06);
 
-        // ── Dimensions ───────────────────────────────────────────────────────
+        // ── Base dimensions (canvas space — never change) ─────────────────────
         private const double PanelW   = 130;
         private const double PanelH   = 148;
         private const double SqSize   = 84;
         private const double SqRadius = 20;
 
         // ── Refs for live update ──────────────────────────────────────────────
-        private readonly Border           _leftSq,    _rightSq;
-        private readonly DropShadowEffect _leftGlow,  _rightGlow;
-        private readonly StackPanel       _row;
+        private readonly Border           _leftSq,   _rightSq;
+        private readonly DropShadowEffect _leftGlow, _rightGlow;
+        private readonly Viewbox          _leftVb,   _rightVb;
         private readonly Border           _gapBorder;
 
         public BlindSpotOverlay(DataService ds, OverlaySettings s) : base(ds, s)
@@ -38,83 +38,91 @@ namespace LMUOverlay.Views.Overlays
             double scale = s.CustomOptions.TryGetValue("Scale", out var sv) ? Convert.ToDouble(sv) : 1.0;
             double gap   = s.CustomOptions.TryGetValue("Gap",   out var gv) ? Convert.ToDouble(gv) : 10;
 
-            _row = new StackPanel
-            {
-                Orientation     = Orientation.Horizontal,
-                Background      = Brushes.Transparent,
-                LayoutTransform = new ScaleTransform(scale, scale)
-            };
+            var (lCanvas, lSq, lFx) = MakePanel("LEFT");
+            var (rCanvas, rSq, rFx) = MakePanel("RIGHT");
 
-            var (lEl, lSq, lFx) = MakePanel("LEFT");
-            var (rEl, rSq, rFx) = MakePanel("RIGHT");
+            _leftSq  = lSq;  _leftGlow  = lFx;
+            _rightSq = rSq;  _rightGlow = rFx;
 
-            _leftSq   = lSq;  _leftGlow  = lFx;
-            _rightSq  = rSq;  _rightGlow = rFx;
+            // Each panel is wrapped in a Viewbox for clean proportional scaling
+            _leftVb  = new Viewbox { Child = lCanvas, Stretch = Stretch.Uniform,
+                                     Width = PanelW * scale, Height = PanelH * scale };
+            _rightVb = new Viewbox { Child = rCanvas, Stretch = Stretch.Uniform,
+                                     Width = PanelW * scale, Height = PanelH * scale };
 
             _gapBorder = new Border { Width = gap, Background = Brushes.Transparent };
 
-            _row.Children.Add(lEl);
-            _row.Children.Add(_gapBorder);
-            _row.Children.Add(rEl);
+            var row = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Background  = Brushes.Transparent
+            };
+            row.Children.Add(_leftVb);
+            row.Children.Add(_gapBorder);
+            row.Children.Add(_rightVb);
 
-            Content = _row;
+            Content = row;
         }
 
-        /// <summary>Called live from the settings sliders.</summary>
+        /// <summary>Called live from settings sliders — no layout rebuild needed.</summary>
         public void UpdatePanelLayout(double scale, double gap)
         {
-            _row.LayoutTransform = new ScaleTransform(scale, scale);
-            _gapBorder.Width     = gap;
+            _leftVb.Width   = PanelW * scale;
+            _leftVb.Height  = PanelH * scale;
+            _rightVb.Width  = PanelW * scale;
+            _rightVb.Height = PanelH * scale;
+            _gapBorder.Width = gap;
         }
 
         // ── Panel builder ─────────────────────────────────────────────────────
-        private static (UIElement Panel, Border Square, DropShadowEffect GlowFx) MakePanel(string side)
+        private static (Canvas Canvas, Border Square, DropShadowEffect GlowFx) MakePanel(string side)
         {
-            // Root panel
-            var root = new Border
+            // Canvas at natural resolution — Viewbox handles scaling
+            var cv = new Canvas { Width = PanelW, Height = PanelH };
+
+            // Background
+            var bg = new Border
             {
                 Width        = PanelW,
                 Height       = PanelH,
                 Background   = new SolidColorBrush(CBackground),
-                CornerRadius = new CornerRadius(8),
-                ClipToBounds = false
+                CornerRadius = new CornerRadius(8)
             };
-            var cv = new Canvas { Width = PanelW, Height = PanelH };
-            root.Child = cv;
+            cv.Children.Add(bg);
 
             // ── Corner brackets ───────────────────────────────────────────────
-            const double M  = 7;   // margin from edge
-            const double BL = 14;  // bracket arm length
-            const double BW = 1.5; // stroke width
+            const double M  = 7;
+            const double BL = 14;
+            const double BW = 1.5;
 
             // Top-left
-            Ln(cv, M,          M,       M + BL,     M,      BW);
-            Ln(cv, M,          M,       M,          M + BL, BW);
+            Ln(cv, M,           M,       M + BL,     M,      BW);
+            Ln(cv, M,           M,       M,          M + BL, BW);
             // Top-right
-            Ln(cv, PanelW-M-BL, M,      PanelW-M,   M,      BW);
-            Ln(cv, PanelW-M,    M,      PanelW-M,   M + BL, BW);
+            Ln(cv, PanelW-M-BL, M,       PanelW-M,   M,      BW);
+            Ln(cv, PanelW-M,    M,       PanelW-M,   M + BL, BW);
             // Bottom-left
-            Ln(cv, M,           PanelH-M, M + BL,   PanelH-M, BW);
-            Ln(cv, M,           PanelH-M-BL, M,     PanelH-M, BW);
+            Ln(cv, M,           PanelH-M, M + BL,    PanelH-M, BW);
+            Ln(cv, M,           PanelH-M-BL, M,      PanelH-M, BW);
             // Bottom-right
-            Ln(cv, PanelW-M-BL, PanelH-M, PanelW-M, PanelH-M, BW);
+            Ln(cv, PanelW-M-BL, PanelH-M, PanelW-M,  PanelH-M, BW);
             Ln(cv, PanelW-M,    PanelH-M-BL, PanelW-M, PanelH-M, BW);
 
-            // ── "BLIND SPOT" top label ────────────────────────────────────────
+            // ── Labels ────────────────────────────────────────────────────────
             AddCentredLabel(cv, "BLIND SPOT", 14);
+            AddCentredLabel(cv, side, PanelH - 22);
 
             // ── Glowing square (centred) ──────────────────────────────────────
             double sqTop = (PanelH - SqSize) / 2 - 4;
 
             var glow = new DropShadowEffect
             {
-                Color       = Colors.Orange,
-                ShadowDepth = 0,
-                BlurRadius  = 0,
-                Opacity     = 0,
+                Color         = Colors.Orange,
+                ShadowDepth   = 0,
+                BlurRadius    = 0,
+                Opacity       = 0,
                 RenderingBias = RenderingBias.Quality
             };
-
             var square = new Border
             {
                 Width        = SqSize,
@@ -124,13 +132,10 @@ namespace LMUOverlay.Views.Overlays
                 Effect       = glow
             };
             Canvas.SetLeft(square, (PanelW - SqSize) / 2);
-            Canvas.SetTop(square,  sqTop);
+            Canvas.SetTop(square, sqTop);
             cv.Children.Add(square);
 
-            // ── Side label at bottom ──────────────────────────────────────────
-            AddCentredLabel(cv, side, PanelH - 22);
-
-            return (root, square, glow);
+            return (cv, square, glow);
         }
 
         // ── Drawing helpers ───────────────────────────────────────────────────
@@ -150,13 +155,13 @@ namespace LMUOverlay.Views.Overlays
         {
             var tb = new TextBlock
             {
-                Text                = text,
-                FontSize            = 8,
-                FontWeight          = FontWeights.SemiBold,
-                FontFamily          = new FontFamily("Consolas"),
-                Foreground          = new SolidColorBrush(CLabel),
-                Width               = PanelW,
-                TextAlignment       = TextAlignment.Center
+                Text          = text,
+                FontSize      = 8,
+                FontWeight    = FontWeights.SemiBold,
+                FontFamily    = new FontFamily("Consolas"),
+                Foreground    = new SolidColorBrush(CLabel),
+                Width         = PanelW,
+                TextAlignment = TextAlignment.Center
             };
             Canvas.SetLeft(tb, 0);
             Canvas.SetTop(tb, y);
@@ -187,8 +192,8 @@ namespace LMUOverlay.Views.Overlays
 
             sq.Background = new SolidColorBrush(col);
             fx.Color      = col;
-            fx.Opacity    = 0.35 + intensity * 0.65;  // 0.35 → 1.0
-            fx.BlurRadius = 8 + intensity * 28;        // 8 → 36 px
+            fx.Opacity    = 0.35 + intensity * 0.65;
+            fx.BlurRadius = 8 + intensity * 28;
         }
     }
 }
