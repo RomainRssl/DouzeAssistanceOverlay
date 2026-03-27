@@ -72,6 +72,7 @@ namespace LMUOverlay.Services
             RegisterOverlay("DeltaTime", new DeltaOverlay(_dataService, _config.DeltaTime));
             RegisterOverlay("Damage", new DamageOverlay(_dataService, _config.Damage));
             RegisterOverlay("LapHistory", new LapHistoryOverlay(_dataService, _config.LapHistory));
+            RegisterOverlay("LapGraph",   new LapGraphOverlay(_dataService,   _config.LapGraph));
             RegisterOverlay("GForce", new GForceOverlay(_dataService, _config.GForce));
             RegisterOverlay("Dashboard", new DashboardOverlay(_dataService, _config.Dashboard, _config.DashboardConfig));
             RegisterOverlay("RelativeAheadBehind", new RelativeAheadBehindOverlay(_dataService, _config.RelativeAheadBehind));

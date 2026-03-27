@@ -53,6 +53,7 @@ namespace LMUOverlay.Views
                 ("DeltaTime",           "DELTA",        _config.DeltaTime),
                 ("Damage",              "DAMAGE",       _config.Damage),
                 ("LapHistory",          "LAPTIMELOG",   _config.LapHistory),
+                ("LapGraph",            "LAPTIMEGRAPH", _config.LapGraph),
                 ("GForce",              "GFORCE",       _config.GForce),
                 ("Dashboard",           "DASHBOARD",    _config.Dashboard),
                 ("TrackLimits",         "TRACKLIMITS",  _config.TrackLimits),

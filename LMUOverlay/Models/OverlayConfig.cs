@@ -25,6 +25,7 @@ namespace LMUOverlay.Models
         public OverlaySettings PitStrategy { get; set; } = new("Stratégie Pit", false);
         public OverlaySettings Damage { get; set; } = new("Dommages", false);
         public OverlaySettings LapHistory { get; set; } = new("Historique Tours", false);
+        public OverlaySettings LapGraph   { get; set; } = new("Graphique Tours",  false);
         public OverlaySettings GForce { get; set; } = new("Force G", false);
         public OverlaySettings Dashboard { get; set; } = new("Dashboard", false);
         public OverlaySettings RelativeAheadBehind { get; set; } = new("Devant / Derrière", false);
