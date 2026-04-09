@@ -1,6 +1,6 @@
 # 🏎️ Douze Assistance — Le Mans Ultimate Racing HUD
 
-![Version](https://img.shields.io/badge/version-1.5.6-blue) ![.NET](https://img.shields.io/badge/.NET-8.0-purple) ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4) ![Licence](https://img.shields.io/badge/licence-MIT-green)
+![Version](https://img.shields.io/badge/version-1.5.7-blue) ![.NET](https://img.shields.io/badge/.NET-8.0-purple) ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4) ![Licence](https://img.shields.io/badge/licence-MIT-green)
 
 Overlay HUD temps réel pour **Le Mans Ultimate**, basé sur la shared memory rF2. Affiche 20 overlays configurables superposés à la fenêtre du jeu : classements, télémétrie, stratégie, météo, drapeaux et bien plus.
 
@@ -296,6 +296,18 @@ Informations de stratégie carburant et arrêt au stand.
 - **Usure pneus** restante et tours possibles sur les pneus actuels
 - **Facteur limitant** : carburant ou énergie (selon lequel est le plus contraignant)
 - **Nombre d'arrêts** encore nécessaires pour finir la course
+- **Distance entrée pit** : compteur de proximité de la voie des stands, visible automatiquement dès que l'arrêt est demandé ou à moins de 1 000 m — passe à "EN STAND" / "AU STAND" / "SORTIE" selon l'état
+
+| Distance restante | Affichage | Couleur |
+|---|---|---|
+| > 1 000 m (pas d'arrêt demandé) | *masqué* | — |
+| ≤ 1 000 m (info neutre) | `987 m` | Gris clair |
+| Arrêt demandé (peu importe la distance) | `654 m` | Bleu |
+| ≤ 400 m | `312 m` | Jaune |
+| ≤ 150 m | `87 m` | Rouge |
+| Entrée en cours / dans la pit lane | `⬛ EN STAND` | Vert |
+| Immobile au stand | `🔧 AU STAND` | Vert |
+| Sortie du stand | `🚀 SORTIE` | Bleu clair |
 
 ---
 
@@ -499,7 +511,7 @@ Accessibles depuis l'onglet **Paramètres** de l'interface principale.
 | Drapeaux | Activé | Drapeau jaune ou bleu actif |
 | Écarts | Activé | Gap ≤ seuil (défaut 1.0s) |
 | Tours | Activé | Passage de tour |
-| Position | Activé | Changement de position |
+| Position | Activé | Changement de position **dans la classe** uniquement — les dépassements d'autres classes et les tours pris sont ignorés |
 | Spotter | Activé | Véhicule dans l'angle mort |
 
 ### Streaming & VR
