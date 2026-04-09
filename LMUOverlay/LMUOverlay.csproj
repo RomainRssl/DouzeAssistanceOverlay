@@ -37,6 +37,13 @@
     </None>
   </ItemGroup>
 
+  <!-- Packs vocaux WAV — copiés dans voice\<pack>\ à côté de l'exe -->
+  <ItemGroup>
+    <Content Include="voice\**\*.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup>
     <Resource Include="Resources\logo.png" />
     <Resource Include="Resources\app.ico" />
