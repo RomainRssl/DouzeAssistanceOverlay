@@ -44,19 +44,13 @@
     </Content>
   </ItemGroup>
 
-  <!-- Logos constructeurs — copiés dans Resources\Manufacturers\ à côté de l'exe -->
-  <ItemGroup>
-    <Content Include="Resources\Manufacturers\*.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
   <ItemGroup>
     <Resource Include="Resources\logo.png" />
     <Resource Include="Resources\app.ico" />
     <Resource Include="Resources\Tracks\*.png" />
     <Resource Include="Resources\Tracks\*.jpg" />
     <Resource Include="Resources\Damage\*.png" />
+    <Resource Include="Resources\Manufacturers\*.png" />
   </ItemGroup>
 
 </Project>
