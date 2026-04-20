@@ -108,8 +108,19 @@
                 <!-- Canvas chart -->
                 <Border Grid.Row="0" Margin="10" Background="#FF0D1616"
                         BorderBrush="#FF244444" BorderThickness="1">
-                    <Canvas x:Name="ChartCanvas" SizeChanged="OnChartSizeChanged"
-                            ClipToBounds="True"/>
+                    <Grid>
+                        <Canvas x:Name="ChartCanvas" SizeChanged="OnChartSizeChanged"
+                                ClipToBounds="True"
+                                Cursor="Crosshair"
+                                MouseWheel="OnChartMouseWheel"
+                                MouseLeftButtonDown="OnChartMouseDown"
+                                MouseMove="OnChartMouseMove"
+                                MouseLeftButtonUp="OnChartMouseUp"
+                                MouseLeave="OnChartMouseLeave"
+                                MouseDoubleClick="OnChartDoubleClick"
+                                ToolTip="Molette : zoom  |  Clic-glisser : déplacer  |  Double-clic : réinitialiser"/>
+                        <Canvas x:Name="CursorCanvas" IsHitTestVisible="False" ClipToBounds="True"/>
+                    </Grid>
                 </Border>
 
                 <!-- X axis label -->

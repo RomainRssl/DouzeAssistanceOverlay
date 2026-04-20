@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using LMUOverlay.Models;
@@ -42,6 +43,14 @@ namespace LMUOverlay.Views
         private List<bool>       _checked      = new();
         private string           _channel      = "Speed";
         private string           _trackName    = "";
+
+        // Zoom / pan
+        private double _zoomMin = 0.0;
+        private double _zoomMax = 1.0;
+        private bool   _isPanning;
+        private Point  _panAnchor;
+        private double _panZoomMinAtStart;
+        private double _panZoomMaxAtStart;
 
         // Services (set externally)
         public DataService?      DataService   { get; set; }
@@ -213,14 +222,15 @@ namespace LMUOverlay.Views
             // Y axis
             DrawLine(PADDING_LEFT, PADDING_TOP, PADDING_LEFT, PADDING_TOP + plotH, axisBrush, 1);
 
-            // X grid lines + labels (0%, 25%, 50%, 75%, 100%)
+            // X grid lines + labels (reflect current zoom window)
             for (int t = 0; t <= 4; t++)
             {
                 double x = PADDING_LEFT + (t / 4.0) * plotW;
                 DrawLine(x, PADDING_TOP, x, PADDING_TOP + plotH, axisBrush, 0.5);
+                double trackPct = (_zoomMin + (t / 4.0) * (_zoomMax - _zoomMin)) * 100;
                 var tb = new TextBlock
                 {
-                    Text = $"{t * 25}%",
+                    Text = $"{trackPct:F0}%",
                     FontFamily = fontFamily, FontSize = 8,
                     Foreground = labelBrush
                 };
@@ -251,18 +261,22 @@ namespace LMUOverlay.Views
         private void DrawTrace(LapTrace trace, Color color, double plotW, double plotH)
         {
             var (yMin, yMax, _) = GetChannelRange();
-            double yRange = yMax - yMin;
+            double yRange     = yMax - yMin;
             if (yRange <= 0) yRange = 1;
+            double zoomRange  = _zoomMax - _zoomMin;
+            if (zoomRange <= 0) zoomRange = 1;
 
             var pts = new PointCollection();
             foreach (var p in trace.Points)
             {
+                if (p.TrackPos < _zoomMin - 0.001 || p.TrackPos > _zoomMax + 0.001) continue;
                 double val = GetValue(p);
-                double cx = PADDING_LEFT + p.TrackPos * plotW;
+                double cx = PADDING_LEFT + (p.TrackPos - _zoomMin) / zoomRange * plotW;
                 double cy = PADDING_TOP  + (1.0 - (val - yMin) / yRange) * plotH;
                 pts.Add(new Point(cx, cy));
             }
 
+            if (pts.Count < 2) return;
             var poly = new Polyline
             {
                 Points = pts,
@@ -321,6 +335,122 @@ namespace LMUOverlay.Views
         }
 
         private void OnChartSizeChanged(object sender, SizeChangedEventArgs e) => DrawChart();
+
+        private void OnChartMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            double plotW = ChartCanvas.ActualWidth - PADDING_LEFT - PADDING_RIGHT;
+            if (plotW <= 0) return;
+
+            double mouseX    = e.GetPosition(ChartCanvas).X;
+            double zoomRange = _zoomMax - _zoomMin;
+            double trackPos  = _zoomMin + (mouseX - PADDING_LEFT) / plotW * zoomRange;
+            trackPos = Math.Clamp(trackPos, _zoomMin, _zoomMax);
+
+            double factor   = e.Delta > 0 ? 0.75 : 1.333;
+            double newRange = Math.Clamp(zoomRange * factor, 0.02, 1.0);
+            double ratio    = (trackPos - _zoomMin) / zoomRange;
+
+            _zoomMin = trackPos - ratio * newRange;
+            _zoomMax = trackPos + (1.0 - ratio) * newRange;
+
+            if (_zoomMin < 0) { _zoomMax -= _zoomMin; _zoomMin = 0; }
+            if (_zoomMax > 1) { _zoomMin -= _zoomMax - 1; _zoomMax = 1; }
+            _zoomMin = Math.Max(0, _zoomMin);
+            _zoomMax = Math.Min(1, _zoomMax);
+
+            DrawChart();
+            e.Handled = true;
+        }
+
+        private void OnChartMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 1)
+            {
+                _isPanning           = true;
+                _panAnchor           = e.GetPosition(ChartCanvas);
+                _panZoomMinAtStart   = _zoomMin;
+                _panZoomMaxAtStart   = _zoomMax;
+                ChartCanvas.CaptureMouse();
+            }
+        }
+
+        private void OnChartDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            _zoomMin = 0;
+            _zoomMax = 1;
+            DrawChart();
+        }
+
+        private void OnChartMouseMove(object sender, MouseEventArgs e)
+        {
+            var    pos   = e.GetPosition(ChartCanvas);
+            double plotW = ChartCanvas.ActualWidth  - PADDING_LEFT - PADDING_RIGHT;
+            double plotH = ChartCanvas.ActualHeight - PADDING_TOP  - PADDING_BOTTOM;
+
+            if (_isPanning && plotW > 0)
+            {
+                double dx       = pos.X - _panAnchor.X;
+                double dTrack   = dx / plotW * (_panZoomMaxAtStart - _panZoomMinAtStart);
+                double newMin   = _panZoomMinAtStart - dTrack;
+                double newMax   = _panZoomMaxAtStart - dTrack;
+                double span     = _panZoomMaxAtStart - _panZoomMinAtStart;
+                if (newMin < 0) { newMin = 0; newMax = span; }
+                if (newMax > 1) { newMax = 1; newMin = 1 - span; }
+                _zoomMin = newMin;
+                _zoomMax = newMax;
+                DrawChart();
+            }
+
+            UpdateCursorLine(pos, plotW, plotH);
+        }
+
+        private void OnChartMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            _isPanning = false;
+            ChartCanvas.ReleaseMouseCapture();
+        }
+
+        private void OnChartMouseLeave(object sender, MouseEventArgs e)
+        {
+            _isPanning = false;
+            ChartCanvas.ReleaseMouseCapture();
+            CursorCanvas.Children.Clear();
+        }
+
+        private void UpdateCursorLine(Point pos, double plotW, double plotH)
+        {
+            CursorCanvas.Children.Clear();
+            double x = pos.X;
+            if (x < PADDING_LEFT || x > PADDING_LEFT + plotW || plotW <= 0) return;
+
+            var lineBrush = new SolidColorBrush(Color.FromArgb(160, 220, 220, 220));
+            var line = new Line
+            {
+                X1 = x, Y1 = PADDING_TOP,
+                X2 = x, Y2 = PADDING_TOP + plotH,
+                Stroke = lineBrush,
+                StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 4, 3 }
+            };
+            CursorCanvas.Children.Add(line);
+
+            double trackPct   = (_zoomMin + (x - PADDING_LEFT) / plotW * (_zoomMax - _zoomMin)) * 100;
+            var label = new TextBlock
+            {
+                Text       = $"{trackPct:F1}%",
+                FontFamily = new FontFamily("Consolas"),
+                FontSize   = 8,
+                Foreground = lineBrush,
+                Background = new SolidColorBrush(Color.FromArgb(140, 13, 22, 22))
+            };
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            double labelX = x + 4;
+            if (labelX + label.DesiredSize.Width > PADDING_LEFT + plotW)
+                labelX = x - 4 - label.DesiredSize.Width;
+            Canvas.SetLeft(label, labelX);
+            Canvas.SetTop(label, PADDING_TOP + 2);
+            CursorCanvas.Children.Add(label);
+        }
 
         private void OnClearTraces(object s, RoutedEventArgs e)
         {
