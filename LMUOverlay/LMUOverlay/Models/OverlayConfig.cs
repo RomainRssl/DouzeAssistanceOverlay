@@ -291,19 +291,19 @@ namespace LMUOverlay.Models
         public string LeaderboardPrenom
         {
             get => _leaderboardPrenom;
-            set { _leaderboardPrenom = value.Trim(); OnPropertyChanged(); }
+            set { _leaderboardPrenom = (value ?? "").Trim(); OnPropertyChanged(); }
         }
 
         public string LeaderboardNom
         {
             get => _leaderboardNom;
-            set { _leaderboardNom = value.Trim(); OnPropertyChanged(); }
+            set { _leaderboardNom = (value ?? "").Trim(); OnPropertyChanged(); }
         }
 
         public string LeaderboardDiscord
         {
             get => _leaderboardDiscord;
-            set { _leaderboardDiscord = value.Trim(); OnPropertyChanged(); }
+            set { _leaderboardDiscord = (value ?? "").Trim(); OnPropertyChanged(); }
         }
 
         /// <summary>Token unique généré au premier lancement — authentifie le pilote.</summary>

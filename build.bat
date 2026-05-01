@@ -10,7 +10,7 @@ cd /d "%~dp0"
 :: ============================================================
 
 set ISCC="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-set CSPROJ=LMUOverlay\LMUOverlay.csproj
+set CSPROJ=LMUOverlay\LMUOverlay\LMUOverlay.csproj
 set GITHUB_REPO=RomainRssl/DouzeAssistanceOverlay
 set PUBLISH_DIR=LMUOverlay\bin\Release\net8.0-windows\win-x64\publish
 set DIST_DIR=dist
@@ -64,7 +64,7 @@ echo.
 :: ============================================================
 echo [1b] Regeneration app.ico depuis logo.png...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Add-Type -AssemblyName System.Drawing; $src=[System.Drawing.Image]::FromFile('LMUOverlay\Resources\logo.png'); $dst='LMUOverlay\Resources\app.ico'; $sizes=@(256,128,64,48,32,24,16); $streams=@(); foreach($sz in $sizes){$bmp=New-Object System.Drawing.Bitmap($sz,$sz);$g=[System.Drawing.Graphics]::FromImage($bmp);$g.InterpolationMode=[System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic;$g.PixelOffsetMode=[System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality;$g.DrawImage($src,0,0,$sz,$sz);$ms=New-Object System.IO.MemoryStream;$bmp.Save($ms,[System.Drawing.Imaging.ImageFormat]::Png);$streams+=$ms;$g.Dispose();$bmp.Dispose()};$src.Dispose();$out=New-Object System.IO.MemoryStream;$w=New-Object System.IO.BinaryWriter($out);$w.Write([uint16]0);$w.Write([uint16]1);$w.Write([uint16]$sizes.Count);$off=6+16*$sizes.Count;for($i=0;$i -lt $sizes.Count;$i++){$b=$streams[$i].ToArray();$d=if($sizes[$i]-ge 256){0}else{$sizes[$i]};$w.Write([byte]$d);$w.Write([byte]$d);$w.Write([byte]0);$w.Write([byte]0);$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]$b.Length);$w.Write([uint32]$off);$off+=$b.Length};foreach($ms in $streams){$w.Write($ms.ToArray());$ms.Dispose()};$w.Flush();[System.IO.File]::WriteAllBytes($dst,$out.ToArray());$out.Dispose();$w.Dispose();Write-Host 'ICO OK'"
+  "Add-Type -AssemblyName System.Drawing; $src=[System.Drawing.Image]::FromFile('LMUOverlay\LMUOverlay\Resources\logo.png'); $dst='LMUOverlay\LMUOverlay\Resources\app.ico'; $sizes=@(256,128,64,48,32,24,16); $streams=@(); foreach($sz in $sizes){$bmp=New-Object System.Drawing.Bitmap($sz,$sz);$g=[System.Drawing.Graphics]::FromImage($bmp);$g.InterpolationMode=[System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic;$g.PixelOffsetMode=[System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality;$g.DrawImage($src,0,0,$sz,$sz);$ms=New-Object System.IO.MemoryStream;$bmp.Save($ms,[System.Drawing.Imaging.ImageFormat]::Png);$streams+=$ms;$g.Dispose();$bmp.Dispose()};$src.Dispose();$out=New-Object System.IO.MemoryStream;$w=New-Object System.IO.BinaryWriter($out);$w.Write([uint16]0);$w.Write([uint16]1);$w.Write([uint16]$sizes.Count);$off=6+16*$sizes.Count;for($i=0;$i -lt $sizes.Count;$i++){$b=$streams[$i].ToArray();$d=if($sizes[$i]-ge 256){0}else{$sizes[$i]};$w.Write([byte]$d);$w.Write([byte]$d);$w.Write([byte]0);$w.Write([byte]0);$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]$b.Length);$w.Write([uint32]$off);$off+=$b.Length};foreach($ms in $streams){$w.Write($ms.ToArray());$ms.Dispose()};$w.Flush();[System.IO.File]::WriteAllBytes($dst,$out.ToArray());$out.Dispose();$w.Dispose();Write-Host 'ICO OK'"
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1b & pause & exit /b 1 )
 echo      OK
 echo.

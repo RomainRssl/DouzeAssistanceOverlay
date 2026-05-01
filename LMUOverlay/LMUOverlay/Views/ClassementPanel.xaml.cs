@@ -28,15 +28,15 @@ namespace LMUOverlay.Views
 
         public void Initialize(GeneralSettings settings, ClassementService svc)
         {
-            _settings       = settings;
-            _svc            = svc;
-            TbPrenom.Text   = settings.LeaderboardPrenom;
-            TbNom.Text      = settings.LeaderboardNom;
-            TbDiscord.Text  = settings.LeaderboardDiscord;
+            _settings = settings ?? new GeneralSettings();
+            _svc      = svc;
+            TbPrenom.Text  = _settings.LeaderboardPrenom;
+            TbNom.Text     = _settings.LeaderboardNom;
+            TbDiscord.Text = _settings.LeaderboardDiscord;
 
             // Show hint if identity not yet configured
-            if (string.IsNullOrWhiteSpace(settings.LeaderboardPrenom) ||
-                string.IsNullOrWhiteSpace(settings.LeaderboardNom))
+            if (string.IsNullOrWhiteSpace(_settings.LeaderboardPrenom) ||
+                string.IsNullOrWhiteSpace(_settings.LeaderboardNom))
                 ShowState("config");
         }
 
