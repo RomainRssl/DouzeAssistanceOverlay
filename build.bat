@@ -120,6 +120,8 @@ if %ERRORLEVEL% NEQ 0 ( echo ERREUR: git non trouve & pause & exit /b 1 )
 
 git add update.xml %CSPROJ%
 git commit -m "Release v!VERSION!"
+git pull --rebase origin main
+if %ERRORLEVEL% NEQ 0 ( echo ERREUR: git pull echoue & pause & exit /b 1 )
 git push --set-upstream origin main
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR: git push echoue & pause & exit /b 1 )
 echo      Push OK
