@@ -26,18 +26,30 @@ namespace LMUOverlay.Views
         private HashSet<string> _activeClasses = [];
         private Dictionary<string, Dictionary<string, List<LapEntry>>>? _data;
 
+        public ClassementPanel()
+        {
+            InitializeComponent();
+        }
+
         public void Initialize(GeneralSettings settings, ClassementService svc)
         {
-            _settings = settings ?? new GeneralSettings();
-            _svc      = svc;
-            TbPrenom.Text  = _settings.LeaderboardPrenom;
-            TbNom.Text     = _settings.LeaderboardNom;
-            TbDiscord.Text = _settings.LeaderboardDiscord;
+            try
+            {
+                _settings = settings ?? new GeneralSettings();
+                _svc      = svc;
+                if (TbPrenom  != null) TbPrenom.Text  = _settings.LeaderboardPrenom;
+                if (TbNom     != null) TbNom.Text     = _settings.LeaderboardNom;
+                if (TbDiscord != null) TbDiscord.Text = _settings.LeaderboardDiscord;
 
-            // Show hint if identity not yet configured
-            if (string.IsNullOrWhiteSpace(_settings.LeaderboardPrenom) ||
-                string.IsNullOrWhiteSpace(_settings.LeaderboardNom))
-                ShowState("config");
+                // Show hint if identity not yet configured
+                if (string.IsNullOrWhiteSpace(_settings.LeaderboardPrenom) ||
+                    string.IsNullOrWhiteSpace(_settings.LeaderboardNom))
+                    ShowState("config");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ClassementPanel] Initialize error: {ex.Message}");
+            }
         }
 
         public async Task LoadAsync()
@@ -316,11 +328,11 @@ namespace LMUOverlay.Views
 
         private void ShowState(string state)
         {
-            LoadingText.Visibility      = state == "loading" ? Visibility.Visible : Visibility.Collapsed;
-            ErrorPanel.Visibility       = state == "error"   ? Visibility.Visible : Visibility.Collapsed;
-            EmptyPanel.Visibility       = state == "empty"   ? Visibility.Visible : Visibility.Collapsed;
-            ConfigNeededText.Visibility = state == "config"  ? Visibility.Visible : Visibility.Collapsed;
-            RankingsScroll.Visibility   = state == "data"    ? Visibility.Visible : Visibility.Collapsed;
+            if (LoadingText      != null) LoadingText.Visibility      = state == "loading" ? Visibility.Visible : Visibility.Collapsed;
+            if (ErrorPanel       != null) ErrorPanel.Visibility       = state == "error"   ? Visibility.Visible : Visibility.Collapsed;
+            if (EmptyPanel       != null) EmptyPanel.Visibility       = state == "empty"   ? Visibility.Visible : Visibility.Collapsed;
+            if (ConfigNeededText != null) ConfigNeededText.Visibility = state == "config"  ? Visibility.Visible : Visibility.Collapsed;
+            if (RankingsScroll   != null) RankingsScroll.Visibility   = state == "data"    ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void OnRefresh(object sender, RoutedEventArgs e) => _ = LoadAsync();
