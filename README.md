@@ -1,6 +1,6 @@
 # 🏎️ Douze Assistance — Le Mans Ultimate Racing HUD
 
-![Version](https://img.shields.io/badge/version-1.7.3-blue) ![.NET](https://img.shields.io/badge/.NET-8.0-purple) ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4) ![Licence](https://img.shields.io/badge/licence-MIT-green)
+![Version](https://img.shields.io/badge/version-2.0.0-blue) ![.NET](https://img.shields.io/badge/.NET-8.0-purple) ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D4) ![Licence](https://img.shields.io/badge/licence-MIT-green)
 
 Overlay HUD temps réel pour **Le Mans Ultimate**, basé sur la shared memory rF2. Affiche 20 overlays configurables superposés à la fenêtre du jeu : classements, télémétrie, stratégie, météo, drapeaux et bien plus.
 
