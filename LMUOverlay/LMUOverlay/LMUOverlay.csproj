@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>LMUOverlay</RootNamespace>
+    <AssemblyName>DouzeAssistance</AssemblyName>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <Description>Douze Assistance — Le Mans Ultimate Overlay</Description>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\rF2SharedMemory\rF2SharedMemory.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoUpdater.NET.Official" Version="1.9.2" />
+    <PackageReference Include="ClosedXML" Version="0.103.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="SharpDX" Version="4.2.0" />
+    <PackageReference Include="SharpDX.DirectInput" Version="4.2.0" />
+    <PackageReference Include="System.Speech" Version="8.0.0" />
+    <!-- OpenXR backend (D3D11 via P/Invoke, no extra GPU package needed) -->
+    <PackageReference Include="Silk.NET.OpenXR" Version="2.22.0" />
+  </ItemGroup>
+
+  <!-- OpenVR DLL: copy to output if present (optional for VR support) -->
+  <ItemGroup>
+    <None Include="openvr_api.dll" Condition="Exists('openvr_api.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Packs vocaux WAV — copiés dans voice\<pack>\ à côté de l'exe -->
+  <ItemGroup>
+    <Content Include="voice\**\*.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\logo.png" />
+    <Resource Include="Resources\app.ico" />
+    <Resource Include="Resources\Tracks\*.png" />
+    <Resource Include="Resources\Tracks\*.jpg" />
+    <Resource Include="Resources\Damage\*.png" />
+    <Resource Include="Resources\Manufacturers\*.png" />
+  </ItemGroup>
+
+</Project>

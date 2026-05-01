@@ -1,0 +1,218 @@
+<Window x:Class="LMUOverlay.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DOUZE ASSISTANCE"
+        Width="960" Height="660"
+        MinWidth="760" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        Background="#FF0B0B0B"
+        ResizeMode="CanResizeWithGrip">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- header -->
+            <RowDefinition Height="Auto"/>  <!-- action bar (HUD only) -->
+            <RowDefinition Height="*"/>     <!-- main content -->
+            <RowDefinition Height="Auto"/>  <!-- status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- ROW 0 — HEADER                                               -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="0" Background="#FF0E0E0E"
+                BorderBrush="#FF1E1E1E" BorderThickness="0,0,0,1">
+            <DockPanel>
+
+                <!-- LEFT: Logo + brand -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left"
+                            VerticalAlignment="Center" Margin="14,0">
+                    <Border Width="40" Height="40" CornerRadius="8"
+                            Background="#FF161616" Margin="0,8,12,8">
+                        <Image Source="pack://application:,,,/Resources/logo.png"
+                               Width="30" Height="30"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="DOUZE ASSISTANCE"
+                                   FontSize="13" FontWeight="Bold"
+                                   FontFamily="Segoe UI Semibold"
+                                   Foreground="#FFF5F5F5"/>
+                        <TextBlock Text="Le Mans Ultimate · Overlay Suite"
+                                   FontSize="9" FontFamily="Segoe UI"
+                                   Foreground="#FF525252"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- RIGHT: version + status + connect -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"
+                            VerticalAlignment="Center" Margin="14,0">
+                    <TextBlock x:Name="VersionText" Text="v1.0.0" FontSize="9"
+                               FontFamily="Consolas" Foreground="#FF383838"
+                               VerticalAlignment="Center" Margin="0,0,14,0"
+                               Cursor="Hand"
+                               ToolTip="Cliquer pour vérifier les mises à jour"
+                               MouseLeftButtonDown="OnCheckUpdates"/>
+                    <!-- Status indicator -->
+                    <Border x:Name="StatusBadge" CornerRadius="12" Padding="10,4"
+                            Background="#FF161616" BorderBrush="#FF2A2A2A" BorderThickness="1"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="StatusDot" Width="7" Height="7" Margin="0,0,6,0"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock x:Name="StatusText" FontSize="10" FontFamily="Consolas"
+                                       Foreground="#FFA3A3A3" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <Button x:Name="BtnConnect" Content="CONNECTER" Click="OnConnect"
+                            Style="{StaticResource PrimaryButton}" FontSize="10"/>
+                </StackPanel>
+
+                <!-- CENTER: Navigation tabs -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                            VerticalAlignment="Stretch" DockPanel.Dock="Left">
+                    <Button x:Name="TabHud" Content="HUD" Click="OnTabHud"
+                            Style="{StaticResource NavTab}"
+                            Foreground="#FFF5F5F5"
+                            BorderBrush="#FF22C55E"/>
+                    <Button x:Name="TabTelemetry" Content="TELEMETRY" Click="OnTabTelemetry"
+                            Style="{StaticResource NavTab}"
+                            BorderBrush="Transparent" Margin="8,0,0,0"/>
+                    <Button x:Name="TabAudio" Content="AUDIO" Click="OnTabAudio"
+                            Style="{StaticResource NavTab}"
+                            BorderBrush="Transparent" Margin="8,0,0,0"/>
+                    <Button x:Name="TabChrono" Content="CHRONO" Click="OnTabChrono"
+                            Style="{StaticResource NavTab}"
+                            BorderBrush="Transparent" Margin="8,0,0,0"/>
+                    <Button x:Name="TabLeaderboard" Content="CLASSEMENT"
+                            Click="OnTabLeaderboard"
+                            Style="{StaticResource NavTab}"
+                            BorderBrush="Transparent" Margin="8,0,0,0"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- ROW 1 — ACTION BAR (HUD only)                               -->
+        <!-- ============================================================ -->
+        <Border x:Name="HudActions" Grid.Row="1"
+                Background="#FF0E0E0E"
+                BorderBrush="#FF1E1E1E" BorderThickness="0,0,0,1"
+                Padding="10,6">
+            <DockPanel>
+                <!-- Left group: display controls -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button x:Name="BtnLock" Content="🔒 LOCK" Click="OnToggleLock"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnVR" Content="VR" Click="OnToggleVR"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnHideMenus" Content="MASQUER MENUS" Click="OnToggleHideMenus"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnForceDisplay" Content="FORCER : OFF" Click="OnToggleForceDisplay"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"/>
+                </StackPanel>
+                <!-- Separator -->
+                <Border Width="1" Background="#FF1E1E1E" Margin="6,2" DockPanel.Dock="Left"/>
+                <!-- Right group: overlays + save -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button Content="TOUT ON" Click="OnShowAll"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"/>
+                    <Button Content="TOUT OFF" Click="OnHideAll"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"/>
+                    <Button Content="EXPORT" Click="OnExport"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"/>
+                    <Button Content="💾 SAVE" Click="OnSave"
+                            Style="{StaticResource FlatToggle}" Margin="0,0,4,0"
+                            Foreground="#FF22C55E"/>
+                    <TextBlock x:Name="SaveStatus"
+                               Text="✓ Sauvegardé" FontSize="11"
+                               Foreground="#FF22C55E"
+                               VerticalAlignment="Center"
+                               Margin="4,0,0,0"
+                               Visibility="Collapsed"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- ROW 2 — MAIN CONTENT                                        -->
+        <!-- ============================================================ -->
+        <Grid Grid.Row="2">
+
+            <!-- HUD: sidebar + settings panel -->
+            <Grid x:Name="HudGrid">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="170"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT: Overlay list -->
+                <Border Grid.Column="0" Background="#FF0E0E0E"
+                        BorderBrush="#FF1E1E1E" BorderThickness="0,0,1,0">
+                    <DockPanel>
+                        <!-- Sidebar header -->
+                        <Border DockPanel.Dock="Top" Background="#FF0B0B0B"
+                                BorderBrush="#FF1E1E1E" BorderThickness="0,0,0,1"
+                                Padding="12,7">
+                            <TextBlock Text="OVERLAYS" FontSize="9" FontWeight="Bold"
+                                       FontFamily="Segoe UI Semibold"
+                                       Foreground="#FF383838"/>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="SidebarPanel" Margin="0,4"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+
+                <!-- RIGHT: Settings panel -->
+                <Border Grid.Column="1" Background="#FF0B0B0B">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="20,16">
+                        <StackPanel x:Name="SettingsPanel"/>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- TELEMETRY panel (hidden by default) -->
+            <local:TelemetryPanel x:Name="TelPanel" Visibility="Collapsed"
+                                  xmlns:local="clr-namespace:LMUOverlay.Views"/>
+
+            <!-- AUDIO / VOICE panel (hidden by default) -->
+            <local:VoicePanel x:Name="VoicePanel" Visibility="Collapsed"
+                              xmlns:local="clr-namespace:LMUOverlay.Views"/>
+
+            <!-- CHRONO panel (hidden by default) -->
+            <local:ChronoPanel x:Name="ChronoPanel" Visibility="Collapsed"
+                               xmlns:local="clr-namespace:LMUOverlay.Views"/>
+
+            <!-- CLASSEMENT panel -->
+            <local:ClassementPanel x:Name="ClassementPanel" Visibility="Collapsed"
+                                   xmlns:local="clr-namespace:LMUOverlay.Views"/>
+        </Grid>
+
+        <!-- ============================================================ -->
+        <!-- ROW 3 — STATUS BAR                                          -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="3" Background="#FF0E0E0E"
+                BorderBrush="#FF1E1E1E" BorderThickness="0,1,0,0"
+                Padding="14,5">
+            <DockPanel>
+                <!-- Right: overlay count -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"
+                            VerticalAlignment="Center">
+                    <TextBlock x:Name="ActiveCountText" FontSize="9" FontFamily="Consolas"
+                               Foreground="#FF22C55E" Margin="0,0,14,0"/>
+                    <TextBlock Text="Douze Assistance" FontSize="9"
+                               Foreground="#FF2A2A2A" FontFamily="Segoe UI"/>
+                </StackPanel>
+                <!-- Left: status indicators -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="SHM" FontSize="9" FontFamily="Consolas"
+                               Foreground="#FF383838" Margin="0,0,6,0"/>
+                    <Ellipse x:Name="ShmDot" Width="6" Height="6" Margin="0,0,14,0"/>
+                    <TextBlock x:Name="TrackText" FontSize="9" FontFamily="Consolas"
+                               Foreground="#FF525252"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

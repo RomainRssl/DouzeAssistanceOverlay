@@ -1,0 +1,15 @@
+Douze Assistance - Le Mans Ultimate Overlay
+
+Lancez DouzeAssistance.exe
+
+VR: placez openvr_api.dll ici
+Circuits: placez les images PNG dans Tracks\
+
+Placer le fichier CUSTOMPLUGINVARIABLES.JSON
+dans: \Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate\UserData\player
+
+et les fichiers DLL dans: \Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate\Plugins
+
+Bug connu: --les drapeaux Jaune/bleu sont pas fonctionnelles a 100%
+
+
