@@ -61,9 +61,8 @@ namespace LMUOverlay.Services
         /// <summary>
         /// Overlays persistants : toujours visibles quand activés,
         /// indépendants de HideInMenus et de l'état de connexion.
-        /// (Réservé à un usage futur — vide par défaut.)
         /// </summary>
-        private static readonly HashSet<string> _persistentOverlays = new();
+        private static readonly HashSet<string> _persistentOverlays = new() { "Clock" };
 
         public event EventHandler<bool>? ConnectionChanged;
         public event EventHandler<bool>? VRStatusChanged;
@@ -125,6 +124,7 @@ namespace LMUOverlay.Services
             RegisterOverlay("Rejoin", new RejoinOverlay(_dataService, _config.Rejoin));
             RegisterOverlay("Note",   new NoteOverlay(_dataService,   _config.Note));
             RegisterOverlay("Compteur", new CompteurOverlay(_dataService, _config.Compteur));
+            RegisterOverlay("Clock",    new ClockOverlay(_dataService, _config.Clock));
 
             _initialized = true;
 

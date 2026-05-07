@@ -33,6 +33,7 @@ namespace LMUOverlay.Models
         public OverlaySettings Rejoin { get; set; } = new("Retour en Piste", false);
         public OverlaySettings Note { get; set; } = new("Note", false);
         public OverlaySettings Compteur { get; set; } = new("Compteur", false);
+        public OverlaySettings Clock { get; set; } = new("Horloge", false);
 
         public ChronoSettings Chrono { get; set; } = new();
         public GeneralSettings General { get; set; } = new();
@@ -78,6 +79,7 @@ namespace LMUOverlay.Models
         private bool _isEnabled;
         private double _scale = 1.0;
         private double _opacity = 0.9;
+        private double _backgroundOpacity = 1.0;
         private double _posX = 100;
         private double _posY = 100;
         private bool _isLocked;
@@ -102,6 +104,13 @@ namespace LMUOverlay.Models
         {
             get => _opacity;
             set { _opacity = Math.Clamp(value, 0.1, 1.0); OnPropertyChanged(); }
+        }
+
+        /// <summary>Background layer opacity only (0 = transparent bg, 1 = fully opaque bg).</summary>
+        public double BackgroundOpacity
+        {
+            get => _backgroundOpacity;
+            set { _backgroundOpacity = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
         }
 
         public double PosX

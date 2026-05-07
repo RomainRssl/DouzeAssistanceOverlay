@@ -22,6 +22,7 @@ namespace LMUOverlay.Views.Overlays
         private FrameworkElement? _originalContent;
         private Grid? _outerGrid;
         private Viewbox? _viewbox;
+        private Border? _bgBorder;          // background-only layer (sits behind content)
         private bool _wrapped;
         private bool _isCustomSize;
         private double _naturalWidth, _naturalHeight;
@@ -130,7 +131,25 @@ namespace LMUOverlay.Views.Overlays
                 Content = null;
 
                 _outerGrid = new Grid();
-                // Content at index 0
+
+                // Extract background from root Border into a separate layer so that
+                // BackgroundOpacity can control the background independently of content.
+                _bgBorder = null;
+                if (fe is Border rb && rb.Background is { } bg)
+                {
+                    _bgBorder = new Border
+                    {
+                        Background          = bg,
+                        CornerRadius        = rb.CornerRadius,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        VerticalAlignment   = VerticalAlignment.Stretch,
+                        Opacity             = Settings.BackgroundOpacity
+                    };
+                    rb.Background = null;
+                    _outerGrid.Children.Add(_bgBorder);  // index 0: background layer
+                }
+
+                // Content (index 0 if no _bgBorder, otherwise index 1)
                 _outerGrid.Children.Add(fe);
                 // Resize handles on top (order matters for hit testing)
                 _outerGrid.Children.Add(_edgeRight);
@@ -176,7 +195,9 @@ namespace LMUOverlay.Views.Overlays
                     StretchDirection = StretchDirection.Both,
                     Child = _originalContent
                 };
-                _outerGrid.Children.Insert(0, _viewbox);
+                // Insert after _bgBorder (if present) so background stays behind content
+                int insertIdx = _bgBorder != null ? 1 : 0;
+                _outerGrid.Children.Insert(insertIdx, _viewbox);
             }
 
             SizeToContent = SizeToContent.Manual;
@@ -193,7 +214,9 @@ namespace LMUOverlay.Views.Overlays
             {
                 _viewbox.Child = null;
                 _outerGrid.Children.Remove(_viewbox);
-                _outerGrid.Children.Insert(0, _originalContent);
+                // Re-insert after _bgBorder (if present) so background stays behind content
+                int insertIdx = _bgBorder != null ? 1 : 0;
+                _outerGrid.Children.Insert(insertIdx, _originalContent);
                 _viewbox = null;
             }
 
@@ -219,6 +242,10 @@ namespace LMUOverlay.Views.Overlays
             {
                 case nameof(OverlaySettings.Opacity):
                     Opacity = Settings.Opacity;
+                    break;
+                case nameof(OverlaySettings.BackgroundOpacity):
+                    if (_bgBorder != null)
+                        _bgBorder.Opacity = Settings.BackgroundOpacity;
                     break;
                 case nameof(OverlaySettings.IsEnabled):
                     if (Settings.IsEnabled) Show(); else Hide();

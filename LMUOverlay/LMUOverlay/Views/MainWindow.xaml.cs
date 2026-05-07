@@ -61,6 +61,7 @@ namespace LMUOverlay.Views
                 ("Rejoin",              "RETOUR PISTE", _config.Rejoin),
                 ("Note",               "NOTE",          _config.Note),
                 ("Compteur",           "COMPTEUR",      _config.Compteur),
+                ("Clock",              "HORLOGE",       _config.Clock),
             };
 
             BuildSidebar();
@@ -212,7 +213,8 @@ namespace LMUOverlay.Views
             AddSep();
 
             // Opacity
-            AddSlider("Opacité", s.Opacity, 0.1, 1.0, v => s.Opacity = v, "P0");
+            AddSlider("Opacité globale", s.Opacity, 0.1, 1.0, v => s.Opacity = v, "P0");
+            AddSlider("Background", s.BackgroundOpacity, 0.0, 1.0, v => s.BackgroundOpacity = v, "P0");
 
             // Scale
             AddSlider("Taille", s.Scale, 0.5, 3.0, v => s.Scale = v, "F2");
@@ -523,7 +525,7 @@ namespace LMUOverlay.Views
 
             row.Children.Add(new TextBlock
             {
-                Text = "Raccourci", FontSize = 11,
+                Text = "Raccourci cacher/afficher", FontSize = 11,
                 FontFamily = new FontFamily("Segoe UI"),
                 Foreground = B(163, 163, 163),
                 VerticalAlignment = VerticalAlignment.Center
