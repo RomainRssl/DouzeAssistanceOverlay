@@ -183,11 +183,22 @@ namespace LMUOverlay.Views.Overlays
                 // Mode chat / scroll : largeur fixe, hauteur auto — pas de Viewbox
                 _edgeBottom.Visibility = Visibility.Collapsed;
                 _grip.Visibility       = Visibility.Collapsed;
+
+                // OverlayHeight > 0 = valeur issue de l'ancien mode Viewbox (config corrompue)
+                // OverlayWidth < 200 = overlay écrasé par l'ancien mode → ignorer
+                double savedW = Settings.OverlayWidth;
+                if (Settings.OverlayHeight > 0 || savedW < 200)
+                    savedW = 300; // reset vers la largeur par défaut
+
+                Settings.OverlayHeight = 0; // la hauteur n'est jamais sauvegardée dans ce mode
+
+                // Largeur fixe + hauteur auto
+                SizeToContent = SizeToContent.Manual;
+                Width  = savedW;
+                ClearValue(HeightProperty);          // efface toute hauteur figée
                 SizeToContent = SizeToContent.Height;
-                Width = Settings.OverlayWidth > 60
-                    ? Settings.OverlayWidth
-                    : Math.Max(ActualWidth, 300);
-                Settings.OverlayWidth = Width; // persiste la largeur initiale
+
+                Settings.OverlayWidth = Width;
                 return;
             }
 
@@ -295,7 +306,17 @@ namespace LMUOverlay.Views.Overlays
                     break;
                 case nameof(OverlaySettings.OverlayWidth):
                 case nameof(OverlaySettings.OverlayHeight):
-                    if (Settings.OverlayWidth <= 0 && Settings.OverlayHeight <= 0 && _isCustomSize)
+                    if (UseWidthOnlyResize)
+                    {
+                        // Reset Size depuis le panel → revenir à 300px
+                        if (Settings.OverlayWidth == 0)
+                        {
+                            Width = 300;
+                            Settings.OverlayWidth = 300;
+                        }
+                        Settings.OverlayHeight = 0;
+                    }
+                    else if (Settings.OverlayWidth <= 0 && Settings.OverlayHeight <= 0 && _isCustomSize)
                         DeactivateCustomSize();
                     break;
             }
