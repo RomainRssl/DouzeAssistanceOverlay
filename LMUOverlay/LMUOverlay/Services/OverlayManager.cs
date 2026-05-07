@@ -23,9 +23,13 @@ namespace LMUOverlay.Services
         // VR — backend abstrait (SteamVR ou OpenXR selon le runtime actif)
         private IVRService? _vrService;
 
+        // Twitch chat
+        private readonly TwitchChatService _twitchChatService = new();
+
         public bool IsConnected => _reader.IsConnected;
         public DataService DataService => _dataService;
         public VoiceService VoiceService => _voice;
+        public TwitchChatService TwitchChatService => _twitchChatService;
         public IVRService? VRService => _vrService;
         public bool IsVRActive => _vrService?.IsVRActive ?? false;
 
@@ -62,7 +66,7 @@ namespace LMUOverlay.Services
         /// Overlays persistants : toujours visibles quand activés,
         /// indépendants de HideInMenus et de l'état de connexion.
         /// </summary>
-        private static readonly HashSet<string> _persistentOverlays = new() { "Clock" };
+        private static readonly HashSet<string> _persistentOverlays = new() { "Clock", "TwitchChat" };
 
         public event EventHandler<bool>? ConnectionChanged;
         public event EventHandler<bool>? VRStatusChanged;
@@ -124,9 +128,14 @@ namespace LMUOverlay.Services
             RegisterOverlay("Rejoin", new RejoinOverlay(_dataService, _config.Rejoin));
             RegisterOverlay("Note",   new NoteOverlay(_dataService,   _config.Note));
             RegisterOverlay("Compteur", new CompteurOverlay(_dataService, _config.Compteur));
-            RegisterOverlay("Clock",    new ClockOverlay(_dataService, _config.Clock));
+            RegisterOverlay("Clock",      new ClockOverlay(_dataService, _config.Clock));
+            RegisterOverlay("TwitchChat", new TwitchChatOverlay(_dataService, _config.TwitchChat, _twitchChatService, _config));
 
             _initialized = true;
+
+            // Démarrer le chat Twitch si un canal est configuré
+            if (!string.IsNullOrWhiteSpace(_config.Twitch.Channel))
+                _twitchChatService.Connect(_config.Twitch.Channel);
 
             // Persistent overlays are shown immediately regardless of connection
             foreach (var key in _persistentOverlays)
@@ -411,7 +420,8 @@ namespace LMUOverlay.Services
             if (_overlays.TryGetValue(key, out var o))
             {
                 o.Settings.IsEnabled = !o.Settings.IsEnabled;
-                if (!_reader.IsConnected) return;
+                // Overlays persistants : toggle actif même sans connexion LMU
+                if (!_reader.IsConnected && !_persistentOverlays.Contains(key)) return;
                 if (o.Settings.IsEnabled) o.Show(); else o.Hide();
             }
         }
@@ -482,6 +492,7 @@ namespace LMUOverlay.Services
 
             _voice.Dispose();
             _vrService?.Dispose();
+            _twitchChatService.Dispose();
 
             foreach (var o in _overlays.Values)
             {

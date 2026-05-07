@@ -33,7 +33,10 @@ namespace LMUOverlay.Models
         public OverlaySettings Rejoin { get; set; } = new("Retour en Piste", false);
         public OverlaySettings Note { get; set; } = new("Note", false);
         public OverlaySettings Compteur { get; set; } = new("Compteur", false);
-        public OverlaySettings Clock { get; set; } = new("Horloge", false);
+        public OverlaySettings Clock      { get; set; } = new("Horloge", false);
+        public OverlaySettings TwitchChat { get; set; } = new("Tchat Twitch", false);
+
+        public TwitchSettings Twitch { get; set; } = new();
 
         public ChronoSettings Chrono { get; set; } = new();
         public GeneralSettings General { get; set; } = new();
@@ -54,6 +57,22 @@ namespace LMUOverlay.Models
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
+    // ── Twitch ────────────────────────────────────────────────────────────────
+
+    public class TwitchSettings
+    {
+        public string Channel     { get; set; } = "";
+        public int    MaxMessages { get; set; } = 20;
+    }
+
+    public class TwitchMessage
+    {
+        public string   Username { get; set; } = "";
+        public string   Color    { get; set; } = "#9146FF"; // Twitch purple default
+        public string   Text     { get; set; } = "";
+        public DateTime Time     { get; set; } = DateTime.Now;
     }
 
     // ── Hotkey binding ────────────────────────────────────────────────────────

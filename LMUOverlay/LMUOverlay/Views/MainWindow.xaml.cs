@@ -62,6 +62,7 @@ namespace LMUOverlay.Views
                 ("Note",               "NOTE",          _config.Note),
                 ("Compteur",           "COMPTEUR",      _config.Compteur),
                 ("Clock",              "HORLOGE",       _config.Clock),
+                ("TwitchChat",         "TCHAT TWITCH",  _config.TwitchChat),
             };
 
             BuildSidebar();
@@ -418,6 +419,90 @@ namespace LMUOverlay.Views
                 {
                     _config.ProximityRadar.CustomOptions["ShowPosition"] = v;
                 });
+            }
+
+            if (key == "TwitchChat")
+            {
+                AddSep();
+
+                // ── Section channel ───────────────────────────────────────────
+                Add(new TextBlock
+                {
+                    Text       = "CANAL TWITCH",
+                    FontSize   = 9,
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(145, 70, 255)),
+                    Margin     = new Thickness(0, 0, 0, 6),
+                });
+
+                // Ligne : label + champ texte + bouton CONNECTER
+                var channelRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                channelRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+                channelRow.ColumnDefinitions.Add(new ColumnDefinition());
+                channelRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                channelRow.Children.Add(new TextBlock
+                {
+                    Text              = "Canal",
+                    FontSize          = 11,
+                    FontFamily        = new FontFamily("Segoe UI"),
+                    Foreground        = B(163, 163, 163),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+
+                var channelBox = new TextBox
+                {
+                    Text              = _config.Twitch.Channel,
+                    FontSize          = 11,
+                    FontFamily        = new FontFamily("Consolas"),
+                    Foreground        = B(34, 197, 94),
+                    Background        = new SolidColorBrush(Color.FromRgb(22, 24, 30)),
+                    BorderBrush       = new SolidColorBrush(Color.FromRgb(50, 50, 60)),
+                    BorderThickness   = new Thickness(1),
+                    Padding           = new Thickness(6, 3, 6, 3),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin            = new Thickness(4, 0, 4, 0),
+                };
+                Grid.SetColumn(channelBox, 1);
+                channelRow.Children.Add(channelBox);
+
+                var connectBtn = new Button
+                {
+                    Content   = "CONNECTER",
+                    FontSize  = 9,
+                    Padding   = new Thickness(10, 3, 10, 3),
+                    Style     = (Style)FindResource("FlatToggle"),
+                    Foreground = new SolidColorBrush(Color.FromRgb(145, 70, 255)),
+                };
+                Grid.SetColumn(connectBtn, 2);
+                channelRow.Children.Add(connectBtn);
+
+                connectBtn.Click += (_, _) =>
+                {
+                    string newChannel = channelBox.Text.Trim();
+                    _config.Twitch.Channel = newChannel;
+                    _configService.Save(_config);
+
+                    if (!string.IsNullOrEmpty(newChannel))
+                        _overlayManager.TwitchChatService.Connect(newChannel);
+                    else
+                        _overlayManager.TwitchChatService.Disconnect();
+                };
+
+                // Connecter aussi sur Entrée dans le champ
+                channelBox.KeyDown += (_, e) =>
+                {
+                    if (e.Key == System.Windows.Input.Key.Enter)
+                        connectBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                };
+
+                Add(channelRow);
+                AddSep();
+
+                // ── Max messages ──────────────────────────────────────────────
+                AddSlider("Nb messages", _config.Twitch.MaxMessages, 5, 50,
+                    v => _config.Twitch.MaxMessages = (int)v, "F0");
             }
         }
 
