@@ -40,6 +40,12 @@ namespace LMUOverlay.Views.Overlays
         private readonly Polygon _grip;
         private bool _resizeDisabled;
 
+        /// <summary>
+        /// Quand true : pas de Viewbox, la largeur est fixée manuellement et la hauteur
+        /// s'auto-ajuste au contenu (SizeToContent.Height). Idéal pour les overlays scrollables.
+        /// </summary>
+        protected bool UseWidthOnlyResize { get; set; }
+
         private const double EDGE_THICKNESS = 6;
 
         protected BaseOverlayWindow(DataService dataService, OverlaySettings settings)
@@ -172,6 +178,19 @@ namespace LMUOverlay.Views.Overlays
 
             if (_resizeDisabled) return;
 
+            if (UseWidthOnlyResize)
+            {
+                // Mode chat / scroll : largeur fixe, hauteur auto — pas de Viewbox
+                _edgeBottom.Visibility = Visibility.Collapsed;
+                _grip.Visibility       = Visibility.Collapsed;
+                SizeToContent = SizeToContent.Height;
+                Width = Settings.OverlayWidth > 60
+                    ? Settings.OverlayWidth
+                    : Math.Max(ActualWidth, 300);
+                Settings.OverlayWidth = Width; // persiste la largeur initiale
+                return;
+            }
+
             if (Settings.OverlayWidth > 30 && Settings.OverlayHeight > 30)
                 ActivateCustomSize(Settings.OverlayWidth, Settings.OverlayHeight);
             else if (Math.Abs(Settings.Scale - 1.0) > 0.01)
@@ -258,9 +277,12 @@ namespace LMUOverlay.Views.Overlays
                     break;
                 case nameof(OverlaySettings.IsLocked):
                     var vis = Settings.IsLocked ? Visibility.Collapsed : Visibility.Visible;
-                    _grip.Visibility = vis;
                     _edgeRight.Visibility = vis;
-                    _edgeBottom.Visibility = vis;
+                    if (!UseWidthOnlyResize)
+                    {
+                        _grip.Visibility    = vis;
+                        _edgeBottom.Visibility = vis;
+                    }
                     break;
                 case nameof(OverlaySettings.Scale):
                     if (!_suppressScaleResize && !_resizeDisabled && _naturalWidth > 0)
@@ -298,9 +320,12 @@ namespace LMUOverlay.Views.Overlays
         {
             if (_resizeDisabled) return;
             var vis = Settings.IsLocked ? Visibility.Collapsed : Visibility.Visible;
-            _grip.Visibility = vis;
             _edgeRight.Visibility = vis;
-            _edgeBottom.Visibility = vis;
+            if (!UseWidthOnlyResize)
+            {
+                _grip.Visibility       = vis;
+                _edgeBottom.Visibility = vis;
+            }
         }
 
         public abstract void UpdateData();
@@ -345,6 +370,15 @@ namespace LMUOverlay.Views.Overlays
             _activeEdge = edge;
             _resizeScreenStart = PointToScreen(e.GetPosition(this));
 
+            if (UseWidthOnlyResize)
+            {
+                // Pas de Viewbox : on manipule directement Width
+                _resizeStartW = !double.IsNaN(Width) ? Width : ActualWidth;
+                ((UIElement)e.Source).CaptureMouse();
+                e.Handled = true;
+                return;
+            }
+
             // First resize: switch to custom size mode
             if (!_isCustomSize)
                 ActivateCustomSize(ActualWidth, ActualHeight);
@@ -363,6 +397,13 @@ namespace LMUOverlay.Views.Overlays
             var current = PointToScreen(e.GetPosition(this));
             double dx = current.X - _resizeScreenStart.X;
             double dy = current.Y - _resizeScreenStart.Y;
+
+            if (UseWidthOnlyResize)
+            {
+                Width = Math.Max(150, _resizeStartW + dx);
+                e.Handled = true;
+                return;
+            }
 
             switch (_activeEdge)
             {
@@ -386,6 +427,14 @@ namespace LMUOverlay.Views.Overlays
             if (!_isResizing) return;
             _isResizing = false;
             ((UIElement)e.Source).ReleaseMouseCapture();
+
+            if (UseWidthOnlyResize)
+            {
+                // Persiste uniquement la largeur (la hauteur est auto)
+                if (!double.IsNaN(Width)) Settings.OverlayWidth = Width;
+                e.Handled = true;
+                return;
+            }
 
             // Save dimensions and update Scale to keep the slider in sync
             if (!double.IsNaN(Width))  Settings.OverlayWidth  = Width;

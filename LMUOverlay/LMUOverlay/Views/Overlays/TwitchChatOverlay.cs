@@ -24,13 +24,16 @@ namespace LMUOverlay.Views.Overlays
             _chatService = chatService;
             _config      = config;
 
+            // Largeur fixe + hauteur auto : pas de Viewbox, le texte wrappera correctement
+            UseWidthOnlyResize = true;
+
             // ── Structure racine ──────────────────────────────────────────────
             var outer = new Border
             {
-                Background   = new SolidColorBrush(Color.FromArgb(200, 10, 12, 18)),
-                CornerRadius = new CornerRadius(6),
-                Padding      = new Thickness(10, 8, 10, 8),
-                MinWidth     = 240,
+                Background          = new SolidColorBrush(Color.FromArgb(200, 10, 12, 18)),
+                CornerRadius        = new CornerRadius(6),
+                Padding             = new Thickness(10, 8, 10, 8),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
             };
 
             var root = new StackPanel();
@@ -70,13 +73,18 @@ namespace LMUOverlay.Views.Overlays
             });
 
             // ── Liste des messages ────────────────────────────────────────────
-            _messagePanel = new StackPanel { Orientation = Orientation.Vertical };
+            _messagePanel = new StackPanel
+            {
+                Orientation         = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
             _scrollViewer = new ScrollViewer
             {
                 Content                       = _messagePanel,
                 VerticalScrollBarVisibility   = ScrollBarVisibility.Hidden,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                MaxHeight                     = 350,
+                HorizontalAlignment           = HorizontalAlignment.Stretch,
+                MaxHeight                     = 400,
             };
             root.Children.Add(_scrollViewer);
 
