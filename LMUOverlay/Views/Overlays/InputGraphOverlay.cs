@@ -14,6 +14,8 @@ namespace LMUOverlay.Views.Overlays
         // Bars
         private readonly Border _throttleBar, _brakeBar, _clutchBar;
         private readonly StackPanel _barsPanel;
+        // Ghost markers (marqueur doré = inputs du meilleur tour à la position actuelle)
+        private Border _ghostThrottleMark = null!, _ghostBrakeMark = null!, _ghostClutchMark = null!;
 
         // Steering
         private readonly RotateTransform _wheelRotation;
@@ -37,6 +39,11 @@ namespace LMUOverlay.Views.Overlays
         // Trail brake alert
         private Border? _outerBorder;
         private int _trailBrakeFlash;
+
+        // Dynamic calibration — tracks observed max to correct controllers that don't reach 1.0
+        private double _maxThrottle = 1.0;
+        private double _maxBrake    = 1.0;
+        private double _maxClutch   = 1.0;
 
         public InputGraphOverlay(DataService ds, OverlaySettings s, InputDisplayConfig cfg) : base(ds, s)
         {
@@ -161,9 +168,9 @@ namespace LMUOverlay.Views.Overlays
             _throttleBar = CreateInputBar(InputDisplayConfig.ParseColor(_cfg.ThrottleColor));
             _brakeBar = CreateInputBar(InputDisplayConfig.ParseColor(_cfg.BrakeColor));
             _clutchBar = CreateInputBar(InputDisplayConfig.ParseColor(_cfg.ClutchColor));
-            _barsPanel.Children.Add(WrapBar(_throttleBar, "T"));
-            _barsPanel.Children.Add(WrapBar(_brakeBar, "B"));
-            _barsPanel.Children.Add(WrapBar(_clutchBar, "C"));
+            _barsPanel.Children.Add(WrapBar(_throttleBar, "T", out _ghostThrottleMark));
+            _barsPanel.Children.Add(WrapBar(_brakeBar,    "B", out _ghostBrakeMark));
+            _barsPanel.Children.Add(WrapBar(_clutchBar,   "C", out _ghostClutchMark));
             Grid.SetColumn(_barsPanel, 0);
             bottomGrid.Children.Add(_barsPanel);
 
@@ -208,10 +215,18 @@ namespace LMUOverlay.Views.Overlays
             if (_cfg.ShowGear)
                 _gearText.Text = input.Gear switch { -1 => "R", 0 => "N", _ => input.Gear.ToString() };
 
-            // Bars
-            if (_cfg.ShowThrottle) _throttleBar.Height = Math.Max(0, Math.Min(60, Math.Abs(input.Throttle) * 60));
-            if (_cfg.ShowBrake) _brakeBar.Height = Math.Max(0, Math.Min(60, Math.Abs(input.Brake) * 60));
-            if (_cfg.ShowClutch) _clutchBar.Height = Math.Max(0, Math.Min(60, Math.Abs(input.Clutch) * 60));
+            // Dynamic calibration: track observed max per session (min 1.0 so uncalibrated = unchanged)
+            double absThrottle = Math.Abs(input.Throttle);
+            double absBrake    = Math.Abs(input.Brake);
+            double absClutch   = Math.Abs(input.Clutch);
+            if (absThrottle > _maxThrottle) _maxThrottle = absThrottle;
+            if (absBrake    > _maxBrake)    _maxBrake    = absBrake;
+            if (absClutch   > _maxClutch)   _maxClutch   = absClutch;
+
+            // Bars — scaled to observed max so 100% always fills the bar
+            if (_cfg.ShowThrottle) _throttleBar.Height = Math.Max(0, Math.Min(60, (absThrottle / _maxThrottle) * 60));
+            if (_cfg.ShowBrake)    _brakeBar.Height    = Math.Max(0, Math.Min(60, (absBrake    / _maxBrake)    * 60));
+            if (_cfg.ShowClutch)   _clutchBar.Height   = Math.Max(0, Math.Min(60, (absClutch   / _maxClutch)   * 60));
 
             // Steering wheel
             if (_cfg.ShowSteering)
@@ -243,7 +258,12 @@ namespace LMUOverlay.Views.Overlays
             }
 
             // Graph
-            if (_cfg.ShowGraph) DrawGraph();
+            if (_cfg.ShowGraph) DrawGraph(input);
+
+            // Ghost bar markers hidden — ghost traces shown in graph canvas only
+            _ghostThrottleMark.Visibility = Visibility.Collapsed;
+            _ghostBrakeMark.Visibility    = Visibility.Collapsed;
+            _ghostClutchMark.Visibility   = Visibility.Collapsed;
 
             // Trail brake alert: flash border when throttle AND brake pressed simultaneously
             if (_cfg.TrailBrakeAlert && input.Throttle > 0.1 && input.Brake > 0.1 && _outerBorder != null)
@@ -262,7 +282,7 @@ namespace LMUOverlay.Views.Overlays
             }
         }
 
-        private void DrawGraph()
+        private void DrawGraph(InputData current)
         {
             _graphCanvas.Children.Clear();
             var data = _history.ToArray();
@@ -275,8 +295,18 @@ namespace LMUOverlay.Views.Overlays
                 Stroke = new SolidColorBrush(Color.FromArgb(25, 255, 255, 255)), StrokeThickness = 0.5
             });
 
+            // ── Traces ghost (meilleur tour, alignées par position piste) ──
+            if (_cfg.ShowGhostInputs)
+            {
+                var ghostColor = Color.FromRgb(255, 215, 0); // or
+                if (_cfg.ShowThrottle) DrawGhostTrace(data, p => p.Throttle, ghostColor, false);
+                if (_cfg.ShowBrake)    DrawGhostTrace(data, p => p.Brake,    ghostColor, false);
+                if (_cfg.ShowSteering) DrawGhostTrace(data, p => p.Steering, ghostColor, true);
+            }
+
+            // ── Traces actuelles ───────────────────────────────────────────
             if (_cfg.ShowThrottle) DrawTrace(data, d => d.Throttle, InputDisplayConfig.ParseColor(_cfg.ThrottleColor), false);
-            if (_cfg.ShowBrake) DrawTrace(data, d => d.Brake, InputDisplayConfig.ParseColor(_cfg.BrakeColor), false);
+            if (_cfg.ShowBrake)    DrawTrace(data, d => d.Brake,    InputDisplayConfig.ParseColor(_cfg.BrakeColor),    false);
             if (_cfg.ShowSteering) DrawTrace(data, d => d.Steering, InputDisplayConfig.ParseColor(_cfg.SteeringColor), true);
         }
 
@@ -293,6 +323,30 @@ namespace LMUOverlay.Views.Overlays
             _graphCanvas.Children.Add(line);
         }
 
+        /// <summary>
+        /// Trace ghost : pour chaque point de l'historique, on cherche les inputs
+        /// du meilleur tour à la même position sur la piste.
+        /// </summary>
+        private void DrawGhostTrace(InputData[] data, Func<TelemetryPoint, double> sel, Color color, bool centered)
+        {
+            var line = new Polyline
+            {
+                Stroke = new SolidColorBrush(Color.FromArgb(160, color.R, color.G, color.B)),
+                StrokeThickness = _cfg.LineThickness
+            };
+            double step = GW / MaxHistory;
+            for (int i = 0; i < data.Length; i++)
+            {
+                var ghost = DataService.GetGhostInputsAt(data[i].TrackPos);
+                if (ghost == null) continue;
+                double v = Math.Clamp(sel(ghost), -1, 1);
+                double y = centered ? (GH / 2) - (v * GH / 2) : GH - Math.Abs(v) * GH;
+                line.Points.Add(new Point(i * step, Math.Clamp(y, 0, GH)));
+            }
+            if (line.Points.Count >= 2)
+                _graphCanvas.Children.Add(line);
+        }
+
         // ================================================================
         // HELPERS
         // ================================================================
@@ -304,8 +358,23 @@ namespace LMUOverlay.Views.Overlays
             VerticalAlignment = VerticalAlignment.Bottom
         };
 
-        private static StackPanel WrapBar(Border bar, string label)
+        /// <summary>
+        /// Crée le panneau de barre avec son marqueur ghost doré (out).
+        /// Le marqueur ghost est un trait horizontal positionné par marge-bas.
+        /// </summary>
+        private static StackPanel WrapBar(Border bar, string label, out Border ghostMark)
         {
+            // Marqueur ghost : fin trait horizontal or
+            ghostMark = new Border
+            {
+                Width = 12, Height = 2,
+                Background = new SolidColorBrush(Color.FromArgb(210, 255, 215, 0)),
+                VerticalAlignment = VerticalAlignment.Bottom,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Visibility = Visibility.Collapsed,
+                CornerRadius = new CornerRadius(1)
+            };
+
             var container = new Grid { Width = 14, Height = 65, Margin = new Thickness(1) };
             container.Children.Add(new Border
             {
@@ -313,6 +382,8 @@ namespace LMUOverlay.Views.Overlays
                 CornerRadius = new CornerRadius(3), VerticalAlignment = VerticalAlignment.Stretch
             });
             container.Children.Add(bar);
+            container.Children.Add(ghostMark);
+
             var sp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
             sp.Children.Add(container);
             sp.Children.Add(new TextBlock
@@ -321,6 +392,22 @@ namespace LMUOverlay.Views.Overlays
                 HorizontalAlignment = HorizontalAlignment.Center
             });
             return sp;
+        }
+
+        /// <summary>
+        /// Positionne le marqueur ghost à la hauteur correspondant à la valeur (0-1).
+        /// </summary>
+        private static void UpdateGhostMark(Border mark, double? value)
+        {
+            if (value == null)
+            {
+                mark.Visibility = Visibility.Collapsed;
+                return;
+            }
+            const double barHeight = 60.0;
+            double pixelsFromBottom = Math.Clamp(value.Value, 0, 1) * barHeight;
+            mark.Margin     = new Thickness(0, 0, 0, pixelsFromBottom);
+            mark.Visibility = Visibility.Visible;
         }
 
         private static SolidColorBrush Br(byte r, byte g, byte b) => new(Color.FromRgb(r, g, b));

@@ -14,7 +14,7 @@ namespace LMUOverlay.Services
         // EXPORT
         // ====================================================================
 
-        public string Export(List<LapRecord> laps, List<LapTrace> traces, string trackName)
+        public string Export(List<LapRecord> laps, List<LapTrace> traces, string trackName, string carClass = "")
         {
             Directory.CreateDirectory(ExportDir);
             string safe  = string.Join("_", trackName.Split(Path.GetInvalidFileNameChars()));
@@ -25,17 +25,27 @@ namespace LMUOverlay.Services
 
             // Sheet 1 – lap summary
             var ws = wb.Worksheets.Add("Résumé");
-            ws.Cell(1, 1).Value = "Tour";
-            ws.Cell(1, 2).Value = "Temps";
-            ws.Cell(1, 3).Value = "S1";
-            ws.Cell(1, 4).Value = "S2";
-            ws.Cell(1, 5).Value = "S3";
-            ws.Cell(1, 6).Value = "Compound";
-            ws.Cell(1, 7).Value = "Carburant utilisé";
-            ws.Cell(1, 8).Value = "Carburant restant";
-            ws.Cell(1, 9).Value = "Horodatage";
 
-            var header = ws.Range(1, 1, 1, 9);
+            // Metadata rows (rows 1-2) — circuit/class for import matching
+            ws.Cell(1, 1).Value = "Circuit";
+            ws.Cell(1, 2).Value = trackName;
+            ws.Cell(2, 1).Value = "Classe";
+            ws.Cell(2, 2).Value = carClass;
+            ws.Range(1, 1, 2, 1).Style.Font.Bold = true;
+            ws.Range(1, 1, 2, 1).Style.Font.FontColor = XLColor.FromHtml("#888888");
+
+            // Header row starts at row 3
+            ws.Cell(3, 1).Value = "Tour";
+            ws.Cell(3, 2).Value = "Temps";
+            ws.Cell(3, 3).Value = "S1";
+            ws.Cell(3, 4).Value = "S2";
+            ws.Cell(3, 5).Value = "S3";
+            ws.Cell(3, 6).Value = "Compound";
+            ws.Cell(3, 7).Value = "Carburant utilisé";
+            ws.Cell(3, 8).Value = "Carburant restant";
+            ws.Cell(3, 9).Value = "Horodatage";
+
+            var header = ws.Range(3, 1, 3, 9);
             header.Style.Font.Bold = true;
             header.Style.Fill.BackgroundColor = XLColor.FromHtml("#162020");
             header.Style.Font.FontColor = XLColor.White;
@@ -43,7 +53,7 @@ namespace LMUOverlay.Services
             for (int i = 0; i < laps.Count; i++)
             {
                 var lap = laps[i];
-                int row = i + 2;
+                int row = i + 4; // data starts at row 4
                 ws.Cell(row, 1).Value = lap.LapNumber;
                 ws.Cell(row, 2).Value = FormatTime(lap.LapTime);
                 ws.Cell(row, 3).Value = FormatTime(lap.Sector1);
@@ -105,29 +115,40 @@ namespace LMUOverlay.Services
         // IMPORT
         // ====================================================================
 
-        public (List<LapRecord> laps, List<LapTrace> traces) Import(string path)
+        public (List<LapRecord> laps, List<LapTrace> traces, string trackName, string carClass) Import(string path)
         {
             var laps   = new List<LapRecord>();
             var traces = new List<LapTrace>();
+            string trackName = "";
+            string carClass  = "";
 
             using var wb = new XLWorkbook(path);
 
             // Sheet "Résumé"
             if (wb.TryGetWorksheet("Résumé", out var ws))
             {
-                int row = 2;
+                // Detect format: new format has "Circuit" in A1, old format has "Tour" in A1
+                bool newFormat = ws.Cell(1, 1).GetString().Trim() == "Circuit";
+                if (newFormat)
+                {
+                    trackName = ws.Cell(1, 2).GetString().Trim();
+                    carClass  = ws.Cell(2, 2).GetString().Trim();
+                }
+                int dataStart = newFormat ? 4 : 2; // new: data at row 4, old: row 2
+
+                int row = dataStart;
                 while (!ws.Cell(row, 1).IsEmpty())
                 {
                     laps.Add(new LapRecord
                     {
-                        LapNumber      = ws.Cell(row, 1).GetValue<int>(),
-                        LapTime        = ParseTime(ws.Cell(row, 2).GetString()),
-                        Sector1        = ParseTime(ws.Cell(row, 3).GetString()),
-                        Sector2        = ParseTime(ws.Cell(row, 4).GetString()),
-                        Sector3        = ParseTime(ws.Cell(row, 5).GetString()),
-                        TireCompound   = ws.Cell(row, 6).GetString(),
-                        FuelUsed       = ws.Cell(row, 7).GetValue<double>(),
-                        FuelRemaining  = ws.Cell(row, 8).GetValue<double>()
+                        LapNumber     = ws.Cell(row, 1).GetValue<int>(),
+                        LapTime       = ParseTime(ws.Cell(row, 2).GetString()),
+                        Sector1       = ParseTime(ws.Cell(row, 3).GetString()),
+                        Sector2       = ParseTime(ws.Cell(row, 4).GetString()),
+                        Sector3       = ParseTime(ws.Cell(row, 5).GetString()),
+                        TireCompound  = ws.Cell(row, 6).GetString(),
+                        FuelUsed      = ws.Cell(row, 7).GetValue<double>(),
+                        FuelRemaining = ws.Cell(row, 8).GetValue<double>()
                     });
                     row++;
                 }
@@ -136,10 +157,10 @@ namespace LMUOverlay.Services
             // Lap sheets
             foreach (var wt in wb.Worksheets.Where(s => s.Name.StartsWith("Lap_")))
             {
-                double lapTime = 0;
+                double lapTime  = 0;
                 string compound = "";
-                if (!wt.Cell(2, 9).IsEmpty()) lapTime  = wt.Cell(2, 9).GetValue<double>();
-                if (!wt.Cell(2, 10).IsEmpty()) compound = wt.Cell(2, 10).GetString();
+                if (!wt.Cell(2, 9).IsEmpty())  lapTime  = wt.Cell(2, 9).GetValue<double>();
+                if (!wt.Cell(2, 10).IsEmpty())  compound = wt.Cell(2, 10).GetString();
 
                 var trace = new LapTrace
                 {
@@ -167,7 +188,7 @@ namespace LMUOverlay.Services
                 traces.Add(trace);
             }
 
-            return (laps, traces);
+            return (laps, traces, trackName, carClass);
         }
 
         // ====================================================================

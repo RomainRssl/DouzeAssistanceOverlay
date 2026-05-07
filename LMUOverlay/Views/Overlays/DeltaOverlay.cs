@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using LMUOverlay.Helpers;
 using LMUOverlay.Models;
 using LMUOverlay.Services;
 
@@ -9,6 +10,7 @@ namespace LMUOverlay.Views.Overlays
     public class DeltaOverlay : BaseOverlayWindow
     {
         private readonly TextBlock _deltaText, _bestLapText, _lastLapText, _currentLapText, _predictedText;
+        private readonly TextBlock _bestLapLabel;
         private readonly Border _deltaBar;
 
         public DeltaOverlay(DataService ds, OverlaySettings s) : base(ds, s)
@@ -50,7 +52,7 @@ namespace LMUOverlay.Views.Overlays
             g.ColumnDefinitions.Add(new ColumnDefinition());
             g.ColumnDefinitions.Add(new ColumnDefinition());
 
-            var c1 = MakeInfoPair("MEILLEUR", out _bestLapText);
+            var c1 = MakeInfoPair("MEILLEUR", out _bestLapText, out _bestLapLabel);
             var c2 = MakeInfoPair("DERNIER", out _lastLapText);
             Grid.SetColumn(c1, 0); Grid.SetColumn(c2, 1);
             g.Children.Add(c1); g.Children.Add(c2);
@@ -69,13 +71,19 @@ namespace LMUOverlay.Views.Overlays
             Content = border;
         }
 
-        private static StackPanel MakeInfoPair(string label, out TextBlock val)
+        private static StackPanel MakeInfoPair(string label, out TextBlock val, out TextBlock lbl)
         {
             var sp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
-            sp.Children.Add(new TextBlock { Text = label, FontSize = 8, Foreground = new SolidColorBrush(Color.FromRgb(100, 106, 115)), HorizontalAlignment = HorizontalAlignment.Center });
+            lbl = new TextBlock { Text = label, FontSize = 8, Foreground = new SolidColorBrush(Color.FromRgb(100, 106, 115)), HorizontalAlignment = HorizontalAlignment.Center };
+            sp.Children.Add(lbl);
             val = new TextBlock { FontSize = 11, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)), HorizontalAlignment = HorizontalAlignment.Center };
             sp.Children.Add(val);
             return sp;
+        }
+
+        private static StackPanel MakeInfoPair(string label, out TextBlock val)
+        {
+            return MakeInfoPair(label, out val, out _);
         }
 
         public override void UpdateData()
@@ -88,16 +96,21 @@ namespace LMUOverlay.Views.Overlays
             Color col = d.CurrentDelta < -0.3 ? Color.FromRgb(76, 217, 100) :
                         d.CurrentDelta < 0.3 ? Color.FromRgb(230, 237, 243) :
                         Color.FromRgb(255, 59, 48);
-            _deltaText.Foreground = new SolidColorBrush(col);
+            _deltaText.Foreground = BrushCache.Get(col);
 
             // Delta bar
             double barW = Math.Min(Math.Abs(d.CurrentDelta) * 30, 100);
             _deltaBar.Width = Math.Max(0, barW);
-            _deltaBar.Background = new SolidColorBrush(col);
+            _deltaBar.Background = BrushCache.Get(col);
             _deltaBar.HorizontalAlignment = d.CurrentDelta < 0
                 ? HorizontalAlignment.Left : HorizontalAlignment.Right;
 
-            _bestLapText.Text = FormatTime(d.BestLapTime);
+            // Show class best lap time if it is faster than the player's personal best
+            double classBest = DataService.GetClassSessionBestLapTime();
+            bool usingClassBest = classBest > 0 && (d.BestLapTime <= 0 || classBest < d.BestLapTime);
+            _bestLapLabel.Text = usingClassBest ? "MEILLEUR CLS" : "MEILLEUR";
+            _bestLapText.Text  = FormatTime(usingClassBest ? classBest : d.BestLapTime);
+
             _lastLapText.Text = FormatTime(d.LastLapTime);
             _currentLapText.Text = FormatTime(d.CurrentLapTime);
             _predictedText.Text = FormatTime(d.PredictedLapTime);

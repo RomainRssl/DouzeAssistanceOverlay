@@ -186,6 +186,7 @@ namespace LMUOverlay.Views.Overlays
                     _flagBorder.Visibility = Visibility.Visible;
                     Flag("BLEU", "Laissez passer",
                         Color.FromRgb(0, 122, 255), Colors.White);
+                    ShowBlueFlagSide();
                     break;
 
                 case "RED":
@@ -213,7 +214,11 @@ namespace LMUOverlay.Views.Overlays
             double playerSpeed = DataService.GetPlayerSpeed();
             bool playerIsMoving = playerSpeed > 15; // > 54 km/h
 
-            if (isYellow && playerIsMoving)
+            if (state == "BLUE")
+            {
+                // Blue flag side already handled in ShowBlueFlagSide() called above
+            }
+            else if (isYellow && playerIsMoving)
             {
                 var hazards = DataService.GetNearbyHazards(500);
                 if (hazards.Count > 0)
@@ -275,6 +280,54 @@ namespace LMUOverlay.Views.Overlays
         // ================================================================
         // HELPERS
         // ================================================================
+
+        /// <summary>
+        /// Displays the side (left/right) of the faster car triggering the blue flag.
+        /// Looks for any car approaching from behind (relZ &lt; -1m) and shows its lateral side.
+        /// </summary>
+        private void ShowBlueFlagSide()
+        {
+            var nearby = DataService.GetNearbyVehicles(60);
+            // Find the closest car behind the player
+            (double relX, double relZ, double dist) best = (0, 0, double.MaxValue);
+            bool found = false;
+            foreach (var (_, relX, relZ) in nearby)
+            {
+                if (relZ >= -1.0) continue; // must be behind
+                double dist = Math.Abs(relZ);
+                if (dist < best.dist)
+                {
+                    best = (relX, relZ, dist);
+                    found = true;
+                }
+            }
+
+            if (!found)
+            {
+                _hazardBorder.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            _hazardBorder.Visibility = Visibility.Visible;
+            _hazardBorder.Background = new SolidColorBrush(Color.FromArgb(200, 0, 30, 80));
+
+            if (best.relX < -0.5)
+            {
+                _hazardArrow.Text = "◄◄◄ GAUCHE";
+                _hazardArrow.Foreground = Br(100, 180, 255);
+            }
+            else if (best.relX > 0.5)
+            {
+                _hazardArrow.Text = "DROITE ►►►";
+                _hazardArrow.Foreground = Br(100, 180, 255);
+            }
+            else
+            {
+                _hazardArrow.Text = "↓ DERRIÈRE";
+                _hazardArrow.Foreground = Br(100, 180, 255);
+            }
+            _hazardInfo.Text = $"{Math.Abs(best.relZ):F0}m";
+        }
 
         private static bool HasSectorYellow(sbyte[]? sf)
         {

@@ -17,13 +17,33 @@ namespace LMUOverlay.Services
         // Fuel tracking
         private double _fuelAtStartOfLap = -1;
 
-        // Energy tracking
+        // REST API — énergie virtuelle réglementaire (LMU GT3 / LMDh)
+        private readonly LmuRestApiService _restApi = new();
+
+        // Energy tracking — net change per lap (pour détecter vraie déplétion race battery)
         private double _energyAtStartOfLap = -1;
+        // Energy tracking — décharge cumulée par tour (pour affichage ENRG/TOUR exact)
+        private readonly List<double> _energyDeployedSamples = new();
+        private double _energyDeployedThisLap = 0;
+        private double _prevEnergyTick = -1;
+        // Lissage affichage barre énergie (évite oscillation charge/décharge chaque tour)
+        private double _smoothedEnergy = -1;
+        // Valeur lissée en début de tour (pour calcul net sans bruit d'oscillation)
+        private double _smoothedEnergyAtLapStart = -1;
+        // Virtual Energy (REST API) — suivi par tour
+        private double _veAtStartOfLap = -1;
+        private readonly List<double> _veSamples = new(); // VE%/tour consommé
 
         // Lap detection
         private int _trackedLap = -1;
         private bool _wasInPitsThisLap;
         private bool _wasLapInvalidThisLap;
+
+        // Stint tracking (par véhicule)
+        private readonly Dictionary<int, int>    _prevPitstops   = new();
+        private readonly Dictionary<int, int>    _stintLapCount  = new();
+        private readonly Dictionary<int, double> _stintStartET   = new();
+        private readonly Dictionary<int, int>    _prevTotalLaps  = new();
 
         // Session best sector tracking (for purple indicators)
         private double _sessionBestS1 = double.MaxValue;
@@ -31,6 +51,14 @@ namespace LMUOverlay.Services
         private double _sessionBestS3 = double.MaxValue;
         // Per-vehicle personal best sectors (key = vehicle ID)
         private readonly Dictionary<int, (double s1, double s2, double s3)> _personalBestSectors = new();
+
+        // Radar cache — keeps last valid result to avoid flickering when scoring data updates at 2-5 Hz
+        private List<(VehicleData Vehicle, double RelX, double RelZ)> _lastNearbyVehicles = new();
+
+        // Radar EMA smoothing — per-vehicle smoothed relative positions (keyed by vehicle ID)
+        // Eliminates position jumps caused by 5 Hz scoring vs 60 Hz player telemetry mismatch
+        private readonly Dictionary<int, (double relX, double relZ)> _smoothedRadarPos = new();
+        private const double RADAR_ALPHA = 0.40; // blend toward new pos per frame (~30 Hz → smooth but responsive)
 
         public DataService(SharedMemoryReader reader) { _reader = reader; }
 
@@ -68,7 +96,7 @@ namespace LMUOverlay.Services
                     ? v.mLastLapTime - v.mBestLapTime : 0;
 
                 // Try to find matching telemetry for tire/fuel
-                string tireCompound = "";
+                string tireCompound = "", rearTireCompound = "";
                 double fuel = 0;
                 if (telemetry.mVehicles != null)
                 {
@@ -77,7 +105,8 @@ namespace LMUOverlay.Services
                     {
                         if (telemetry.mVehicles[t].mID == v.mID)
                         {
-                            tireCompound = rF2Helper.Str(telemetry.mVehicles[t].mFrontTireCompoundName);
+                            tireCompound     = rF2Helper.Str(telemetry.mVehicles[t].mFrontTireCompoundName);
+                            rearTireCompound = rF2Helper.Str(telemetry.mVehicles[t].mRearTireCompoundName);
                             fuel = telemetry.mVehicles[t].mFuel;
                             break;
                         }
@@ -119,9 +148,13 @@ namespace LMUOverlay.Services
                     EstimatedLapTime = v.mEstimatedLapTime,
                     TimeIntoLap = v.mTimeIntoLap,
                     LapStartET = v.mLapStartET,
-                    PitState = v.mPitState,
+                    PitState    = v.mPitState,
+                    PitLapDist  = v.mPitLapDist,
                     LapsBehindLeader = v.mLapsBehindLeader,
-                    TireCompound = tireCompound,
+                    TireCompound      = tireCompound,
+                    FrontTireCompound = tireCompound,
+                    RearTireCompound  = rearTireCompound,
+                    UpgradePack       = rF2Helper.Str(v.mUpgradePack),
                     Fuel = fuel,
 
                     // Sector status (computed below)
@@ -129,6 +162,37 @@ namespace LMUOverlay.Services
                     BestSector1 = v.mBestSector1,
                     BestSector2 = v.mBestSector2,
                 });
+            }
+
+            // Stint tracking
+            double sessionET = scoring.mScoringInfo.mCurrentET;
+            foreach (var v in vehicles)
+            {
+                int id = v.Id;
+
+                // Arrêt pit détecté → reset stint
+                if (_prevPitstops.TryGetValue(id, out int prevPit) && v.NumPitstops > prevPit)
+                {
+                    _stintLapCount[id] = 0;
+                    _stintStartET[id]  = sessionET;
+                    _prevTotalLaps[id] = v.TotalLaps;
+                }
+                _prevPitstops[id] = v.NumPitstops;
+
+                // Initialisation au premier tick
+                if (!_stintStartET.ContainsKey(id))  _stintStartET[id]  = sessionET;
+                if (!_prevTotalLaps.ContainsKey(id))  _prevTotalLaps[id] = v.TotalLaps;
+                if (!_stintLapCount.ContainsKey(id))  _stintLapCount[id] = 0;
+
+                // Nouveau tour complété → incrémenter le compteur de relais
+                if (v.TotalLaps > _prevTotalLaps[id])
+                {
+                    _stintLapCount[id] += v.TotalLaps - _prevTotalLaps[id];
+                    _prevTotalLaps[id]  = v.TotalLaps;
+                }
+
+                v.StintLaps = _stintLapCount[id];
+                v.StintTime = Math.Max(0, sessionET - _stintStartET[id]);
             }
 
             // Compute sector status for all vehicles
@@ -265,6 +329,23 @@ namespace LMUOverlay.Services
             return string.IsNullOrEmpty(c) ? "OTHER" : c;
         }
 
+        /// <summary>
+        /// Returns the best lap time recorded this session among all vehicles in the same class as the player.
+        /// Returns -1 if the player is not found or no valid lap times exist.
+        /// </summary>
+        public double GetClassSessionBestLapTime()
+        {
+            var all = GetAllVehicles();
+            var player = all.FirstOrDefault(v => v.IsPlayer);
+            if (player == null) return -1;
+            string playerClass = ClassifyVehicle(player.VehicleClass);
+            return all
+                .Where(v => ClassifyVehicle(v.VehicleClass) == playerClass && v.BestLapTime > 0)
+                .Select(v => v.BestLapTime)
+                .DefaultIfEmpty(-1)
+                .Min();
+        }
+
         public List<VehicleData> GetRelativeStandings(int ahead = 5, int behind = 5)
         {
             var all = GetAllVehicles();
@@ -345,19 +426,63 @@ namespace LMUOverlay.Services
             var player = all.FirstOrDefault(v => v.IsPlayer);
             if (player == null) return new();
 
-            var result = new List<(VehicleData, double, double)>();
+            // Use telemetry for player position + yaw (60 Hz) instead of scoring (2-5 Hz)
+            // to avoid radar lag when turning.
+            double playerPosX = player.PosX;
+            double playerPosZ = player.PosZ;
+            double playerYaw  = player.YawAngle;
+            // Only use telemetry for yaw (smoother 60 Hz rotation).
+            // mPos in the telemetry buffer is unreliable in LMU (often zero) — keep scoring positions.
+            var tel = _reader.GetPlayerTelemetry();
+            if (tel.HasValue)
+            {
+                var ori = tel.Value.mOri;
+                if (ori != null && ori.Length > rFactor2Constants.RowZ)
+                    playerYaw = Math.Atan2(ori[rFactor2Constants.RowZ].x, ori[rFactor2Constants.RowZ].z);
+            }
+
+            var rawResult = new List<(VehicleData v, double rawX, double rawZ)>();
+            double cos = Math.Cos(-playerYaw), sin = Math.Sin(-playerYaw);
             foreach (var v in all)
             {
                 if (v.IsPlayer) continue;
-                double dx = v.PosX - player.PosX, dz = v.PosZ - player.PosZ;
+                double dx = v.PosX - playerPosX, dz = v.PosZ - playerPosZ;
                 double dist = Math.Sqrt(dx * dx + dz * dz);
                 if (dist > range) continue;
 
-                double cos = Math.Cos(-player.YawAngle), sin = Math.Sin(-player.YawAngle);
                 double relX = -(dx * cos - dz * sin); // negate: rF2 X axis is inverted
                 double relZ = -(dx * sin + dz * cos); // negate: rF2 Z axis is inverted
-                result.Add((v, relX, relZ));
+                rawResult.Add((v, relX, relZ));
             }
+
+            // If scoring returned nothing (mid-update gap), keep last known smoothed positions
+            if (rawResult.Count == 0)
+                return _lastNearbyVehicles;
+
+            // Apply per-vehicle EMA smoothing to eliminate jump artifacts
+            var result = new List<(VehicleData, double, double)>(rawResult.Count);
+            var activeIds = new HashSet<int>(rawResult.Count);
+            foreach (var (v, rawX, rawZ) in rawResult)
+            {
+                activeIds.Add(v.Id);
+                if (_smoothedRadarPos.TryGetValue(v.Id, out var prev))
+                {
+                    double sX = prev.relX + RADAR_ALPHA * (rawX - prev.relX);
+                    double sZ = prev.relZ + RADAR_ALPHA * (rawZ - prev.relZ);
+                    _smoothedRadarPos[v.Id] = (sX, sZ);
+                    result.Add((v, sX, sZ));
+                }
+                else
+                {
+                    _smoothedRadarPos[v.Id] = (rawX, rawZ);
+                    result.Add((v, rawX, rawZ));
+                }
+            }
+            // Remove stale entries for vehicles no longer nearby
+            foreach (var key in _smoothedRadarPos.Keys.Where(k => !activeIds.Contains(k)).ToList())
+                _smoothedRadarPos.Remove(key);
+
+            _lastNearbyVehicles = result;
             return result;
         }
 
@@ -498,22 +623,40 @@ namespace LMUOverlay.Services
         // FUEL + ENERGY DATA (dual consumption tracker)
         // ====================================================================
 
-        public FuelData GetFuelData()
+        /// <summary>
+        /// Called ONCE per tick (from UpdateTelemetryTrace) to accumulate
+        /// fuel/energy measurements.  GetFuelData() is read-only after this.
+        /// </summary>
+        private void UpdateEnergyAndFuelTracking()
         {
-            if (!_reader.IsConnected) return new FuelData();
+            if (!_reader.IsConnected) return;
             var pt = _reader.GetPlayerTelemetry();
             var ps = _reader.GetPlayerScoring();
-            if (pt == null || ps == null) return new FuelData();
+            if (pt == null || ps == null) return;
 
             var tel = pt.Value;
             var scr = ps.Value;
-            var info = _reader.ScoringInfo;
 
             double V_actuel = tel.mFuel;
-            double V_max = tel.mFuelCapacity;
-            double E_actuel = tel.mBatteryChargeFraction * 100;
-            double E_max = 100.0;
-            double sessionLeft = info.mEndET - info.mCurrentET;
+            double E_raw = tel.mBatteryChargeFraction * 100;
+
+            // ── Décharge cumulée par tick ────────────────────────────────────
+            // On accumule uniquement les BAISSES de batterie (décharge), pas les
+            // recharges (récup freinage). Cela donne l'énergie réellement
+            // déployée par tour, indépendamment de l'équilibre charge/décharge.
+            if (_prevEnergyTick >= 0 && scr.mInPits == 0)
+            {
+                double delta = _prevEnergyTick - E_raw;   // positif = décharge
+                if (delta > 0.0) _energyDeployedThisLap += delta;
+            }
+            _prevEnergyTick = E_raw;
+
+            // ── Lissage barre énergie ────────────────────────────────────────
+            // EMA 0.05 : très lisse, retard ~1 s mais barre stable visuellement
+            if (_smoothedEnergy < 0)
+                _smoothedEnergy = E_raw;
+            else
+                _smoothedEnergy = 0.05 * E_raw + 0.95 * _smoothedEnergy;
 
             // Track anomalies
             if (scr.mInPits != 0) _wasInPitsThisLap = true;
@@ -535,19 +678,44 @@ namespace LMUOverlay.Services
                     }
                 }
 
-                // ENERGY sample
-                if (_energyAtStartOfLap >= 0 && isValid)
+                // ENERGY samples (deux métriques indépendantes)
+                if (_smoothedEnergyAtLapStart >= 0 && isValid)
                 {
-                    double energyUsed = _energyAtStartOfLap - E_actuel;
-                    if (energyUsed > 0.1 && energyUsed < 80.0)
+                    // 1) Décharge cumulée → pour affichage ENRG/TOUR (brute, toutes les baisses)
+                    if (_energyDeployedThisLap > 0.5 && _energyDeployedThisLap < 500.0)
                     {
-                        _energySamples.Add(energyUsed);
+                        _energyDeployedSamples.Add(_energyDeployedThisLap);
+                        if (_energyDeployedSamples.Count > MAX_SAMPLES) _energyDeployedSamples.RemoveAt(0);
+                    }
+
+                    // 2) Variation nette (LISSÉE) → tendance réelle du niveau de batterie sur le stint
+                    // Utiliser _smoothedEnergy des deux côtés élimine le bruit de l'oscillation intra-tour
+                    // GT3 équilibré  : net ≈ 0 après lissage → énergie non limitante
+                    // GT3 / LMDh avec déplétion réelle : net > 0 → énergie limitante détectée correctement
+                    double energyNet = _smoothedEnergyAtLapStart - _smoothedEnergy;
+                    if (energyNet > 0.3 && energyNet < 80.0)
+                    {
+                        _energySamples.Add(energyNet);
                         if (_energySamples.Count > MAX_SAMPLES) _energySamples.RemoveAt(0);
                     }
                 }
 
+                // VE% sample (REST API — énergie virtuelle réglementaire)
+                if (_veAtStartOfLap >= 0 && _restApi.IsAvailable && isValid)
+                {
+                    double veUsed = _veAtStartOfLap - _restApi.VirtualEnergyPct;
+                    if (veUsed > 0.1 && veUsed < 100.0)
+                    {
+                        _veSamples.Add(veUsed);
+                        if (_veSamples.Count > MAX_SAMPLES) _veSamples.RemoveAt(0);
+                    }
+                }
+
                 _fuelAtStartOfLap = V_actuel;
-                _energyAtStartOfLap = E_actuel;
+                _energyAtStartOfLap = E_raw;
+                _smoothedEnergyAtLapStart = _smoothedEnergy;
+                _veAtStartOfLap = _restApi.IsAvailable ? _restApi.VirtualEnergyPct : -1;
+                _energyDeployedThisLap = 0;
                 _wasInPitsThisLap = scr.mInPits != 0;
                 _wasLapInvalidThisLap = false;
             }
@@ -555,23 +723,73 @@ namespace LMUOverlay.Services
             if (_trackedLap < 0)
             {
                 _fuelAtStartOfLap = V_actuel;
-                _energyAtStartOfLap = E_actuel;
+                _energyAtStartOfLap = E_raw;
+                _smoothedEnergyAtLapStart = _smoothedEnergy;
+                _veAtStartOfLap = _restApi.IsAvailable ? _restApi.VirtualEnergyPct : -1;
+                _energyDeployedThisLap = 0;
             }
             _trackedLap = currentLap;
+        }
 
-            // Averages
+        public FuelData GetFuelData()
+        {
+            if (!_reader.IsConnected) return new FuelData();
+            var pt = _reader.GetPlayerTelemetry();
+            var ps = _reader.GetPlayerScoring();
+            if (pt == null || ps == null) return new FuelData();
+
+            var tel = pt.Value;
+            var scr = ps.Value;
+            var info = _reader.ScoringInfo;
+
+            double V_actuel = tel.mFuel;
+            double V_max = tel.mFuelCapacity;
+            double E_max = 100.0;
+            double sessionLeft = info.mEndET - info.mCurrentET;
+            int currentLap = scr.mTotalLaps;
+
+            // ── Moyenne carburant ────────────────────────────────────────────
             double C_fuel = _fuelSamples.Count > 0 ? _fuelSamples.Average() : 0;
-            double C_energy = _energySamples.Count > 0 ? _energySamples.Average() : 0;
+
+            // ── Énergie virtuelle (VE) — priorité API REST LMU ───────────────
+            // Si l'API REST est disponible : on utilise la VE réglementaire (GT3 / LMDh)
+            // Sinon : fallback sur la variation nette de mBatteryChargeFraction (lissée)
+            bool useVE = _restApi.IsAvailable && _restApi.VirtualEnergyPct >= 0;
+            double C_ve  = _veSamples.Count > 0 ? _veSamples.Average() : 0;
+
+            // Fallback batterie (uniquement si VE indisponible)
+            double C_energyDeployed = _energyDeployedSamples.Count > 0 ? _energyDeployedSamples.Average() : 0;
+            double C_energyNet      = _energySamples.Count > 0 ? _energySamples.Average() : 0;
+
+            // Valeur courante d'énergie à afficher
+            double currentEnergyDisplay = useVE
+                ? _restApi.VirtualEnergyPct
+                : (_smoothedEnergy >= 0 ? _smoothedEnergy : 0);
+
+            // Consommation énergie par tour (pour l'affichage ENRG/TOUR)
+            double C_energyPerLap = useVE
+                ? (C_ve > 0 ? C_ve : 0)
+                : (C_energyDeployed > 0 ? C_energyDeployed : 0);
 
             // Autonomies
             double L_fuel = C_fuel > 0.1 ? V_actuel / C_fuel : 0;
-            double L_energy = C_energy > 0.1 ? E_actuel / C_energy : 0;
+
+            // Autonomie énergie :
+            // - VE disponible : énergie limitante dès qu'on a ≥ 2 tours d'historique
+            // - Fallback batterie : limitante uniquement si dérive nette > 0.3 %/tour
+            bool energyIsLimiting = useVE
+                ? (_veSamples.Count >= 2 && C_ve > 0.1)
+                : (C_energyNet > 0.3 && _energySamples.Count >= 2);
+
+            double L_energy = energyIsLimiting
+                ? currentEnergyDisplay / (useVE ? C_ve : C_energyNet)
+                : 0;
 
             // Real autonomy = GOULOT
             double L_real;
             LimitingFactor limiter;
             bool hasFuel = _fuelSamples.Count >= 2;
-            bool hasEnergy = _energySamples.Count >= 2;
+            bool hasEnergy = energyIsLimiting;
 
             if (hasFuel && hasEnergy)
             {
@@ -593,18 +811,41 @@ namespace LMUOverlay.Services
                 raceLapsLeft = (int)Math.Ceiling(sessionLeft / T_tour);
             else raceLapsLeft = 0;
 
-            // Fuel to add
+            // Player vehicle class + VE eligibility
+            string playerClass = "";
+            var scoringVehicles = _reader.Scoring.mVehicles;
+            int numVeh = Math.Min(info.mNumVehicles, scoringVehicles?.Length ?? 0);
+            for (int i = 0; i < numVeh; i++)
+            {
+                var veh = scoringVehicles![i];
+                if (veh.mIsPlayer != 0) { playerClass = rF2Helper.Str(veh.mVehicleClass); break; }
+            }
+            string playerClassKey = ClassifyVehicle(playerClass);
+            bool hasVE = playerClassKey == "HYPERCAR" || playerClassKey == "GT3";
+
+            // Fuel to add (only meaningful in race with enough samples)
+            bool fuelDataReady = C_fuel > 0.1 && _fuelSamples.Count >= 2 && raceLapsLeft > 0;
             double V_marge = SAFETY_MARGIN_LAPS * C_fuel;
-            double fuelToEnd = C_fuel > 0.1 ? raceLapsLeft * C_fuel : 0;
-            double fuelToAdd = C_fuel > 0.1
+            double fuelToEnd = fuelDataReady ? raceLapsLeft * C_fuel : 0;
+            double fuelToAdd = fuelDataReady
                 ? Math.Max(0, (raceLapsLeft * C_fuel) - V_actuel + V_marge) : 0;
             double deficit = fuelToEnd > 0 ? Math.Max(0, fuelToEnd - V_actuel) : 0;
             int stopsRequired = (V_max > 0 && deficit > 0)
                 ? Math.Min(99, (int)Math.Ceiling(deficit / V_max)) : 0;
 
+            // VE to finish (Hypercar / GT3 only)
+            double energyToEnd = 0, energyDeficit = 0;
+            if (hasVE && raceLapsLeft > 0 && C_ve > 0.1 && _veSamples.Count >= 2)
+            {
+                energyToEnd   = raceLapsLeft * C_ve;
+                energyDeficit = Math.Max(0, energyToEnd - currentEnergyDisplay);
+            }
+
             // Pit window (based on REAL autonomy)
             int maxStintFuel = (C_fuel > 0.1 && V_max > 0) ? (int)Math.Floor(V_max / C_fuel) : 999;
-            int maxStintEnergy = (C_energy > 0.1) ? (int)Math.Floor(E_max / C_energy) : 999;
+            int maxStintEnergy = energyIsLimiting
+                ? (int)Math.Floor(currentEnergyDisplay / (useVE ? C_ve : C_energyNet))
+                : 999;
             int maxStintLaps = Math.Min(maxStintFuel, maxStintEnergy);
             double windowClose = L_real > 0 ? L_real - SAFETY_MARGIN_LAPS : 0;
             int windowOpen = raceLapsLeft - maxStintLaps;
@@ -619,18 +860,24 @@ namespace LMUOverlay.Services
             {
                 CurrentFuel = V_actuel, FuelCapacity = V_max,
                 FuelPerLap = C_fuel, FuelAutonomy = L_fuel,
-                CurrentEnergy = E_actuel, EnergyCapacity = E_max,
-                EnergyPerLap = C_energy, EnergyAutonomy = L_energy,
+                CurrentEnergy = currentEnergyDisplay,
+                EnergyCapacity = E_max,
+                EnergyPerLap = C_energyPerLap,
+                EnergyAutonomy = L_energy,
                 RealAutonomy = L_real, Limiter = limiter,
                 RaceLapsRemaining = raceLapsLeft,
-                FuelToAdd = Math.Min(fuelToAdd, V_max),
+                FuelToAdd = fuelDataReady ? Math.Min(fuelToAdd, V_max) : 0,
                 FuelToEnd = fuelToEnd, FuelDeficit = deficit,
                 StopsRequired = stopsRequired, TimeRemaining = sessionLeft,
                 MaxStintLaps = maxStintLaps,
                 WindowClose = windowClose, WindowOpen = windowOpen,
                 WindowState = windowState,
                 ValidFuelSamples = _fuelSamples.Count,
-                ValidEnergySamples = _energySamples.Count
+                ValidEnergySamples = useVE ? _veSamples.Count : _energyDeployedSamples.Count,
+                PlayerVehicleClass = playerClassKey,
+                HasVirtualEnergy   = hasVE,
+                EnergyToEnd        = energyToEnd,
+                EnergyDeficit      = energyDeficit
             };
         }
 
@@ -723,6 +970,7 @@ namespace LMUOverlay.Services
         {
             if (!_reader.IsConnected) return new InputData();
             var pt = _reader.GetPlayerTelemetry();
+            var ps = _reader.GetPlayerScoring();
             if (pt == null) return new InputData();
 
             var tel = pt.Value;
@@ -733,16 +981,61 @@ namespace LMUOverlay.Services
                 tel.mLocalVel.y * tel.mLocalVel.y +
                 tel.mLocalVel.z * tel.mLocalVel.z) * 3.6; // m/s → km/h
 
+            double trackPos = 0;
+            if (ps != null)
+            {
+                double trackLen = _reader.ScoringInfo.mLapDist;
+                if (trackLen > 0)
+                    trackPos = Math.Clamp(ps.Value.mLapDist / trackLen, 0, 1);
+            }
+
             return new InputData
             {
                 Throttle = tel.mUnfilteredThrottle,
-                Brake = tel.mUnfilteredBrake,
+                Brake    = tel.mUnfilteredBrake,
                 Steering = tel.mUnfilteredSteering,
-                Clutch = tel.mUnfilteredClutch,
-                Gear = tel.mGear,
-                RPM = tel.mEngineRPM,
-                MaxRPM = tel.mEngineMaxRPM,
-                Speed = speed
+                Clutch   = tel.mUnfilteredClutch,
+                Gear     = tel.mGear,
+                RPM      = tel.mEngineRPM,
+                MaxRPM   = tel.mEngineMaxRPM,
+                Speed    = speed,
+                TrackPos = trackPos
+            };
+        }
+
+        /// <summary>
+        /// Interpolation linéaire des inputs du meilleur tour all-time à une position donnée (0-1).
+        /// Retourne null si aucune trace n'est disponible.
+        /// </summary>
+        public TelemetryPoint? GetGhostInputsAt(double trackPos)
+        {
+            var pts = _allTimeBestTrace?.Points;
+            if (pts == null || pts.Count < 2) return null;
+
+            // Recherche dichotomique du point juste avant trackPos
+            int lo = 0, hi = pts.Count - 1;
+            while (lo < hi - 1)
+            {
+                int mid = (lo + hi) / 2;
+                if (pts[mid].TrackPos <= trackPos) lo = mid;
+                else                               hi = mid;
+            }
+
+            var a = pts[lo];
+            var b = pts[hi];
+            double span = b.TrackPos - a.TrackPos;
+            if (span <= 0) return a;
+
+            double t = Math.Clamp((trackPos - a.TrackPos) / span, 0, 1);
+            return new TelemetryPoint
+            {
+                TrackPos = trackPos,
+                Throttle = a.Throttle + t * (b.Throttle - a.Throttle),
+                Brake    = a.Brake    + t * (b.Brake    - a.Brake),
+                Steering = a.Steering + t * (b.Steering - a.Steering),
+                Speed    = a.Speed    + t * (b.Speed    - a.Speed),
+                Gear     = (int)Math.Round(a.Gear + t * (b.Gear - a.Gear)),
+                RPM      = a.RPM      + t * (b.RPM      - a.RPM)
             };
         }
 
@@ -791,7 +1084,7 @@ namespace LMUOverlay.Services
                 WaterTemp = tel.mEngineWaterTemp,
                 OilTemp = tel.mEngineOilTemp,
                 Overheating = tel.mOverheating != 0,
-                PitLimiter = scr.mInPits != 0 || scr.mPitState >= 2,
+                PitLimiter = scr.mInPits != 0,
             };
         }
 
@@ -846,6 +1139,53 @@ namespace LMUOverlay.Services
             if (!_reader.IsConnected) return false;
             var ps = _reader.GetPlayerScoring();
             return ps.HasValue && ps.Value.mInPits != 0;
+        }
+
+        /// <summary>
+        /// Retourne la distance entre la voiture du joueur et l'entrée de la voie des stands.
+        /// DistanceToPit  : mètres restants avant l'entrée des pits (0 si déjà dans les pits).
+        /// PitState       : 0=Aucun, 1=Demandé, 2=Entrée, 3=Arrêté, 4=Sortie.
+        /// InPits         : true si la voiture est actuellement dans la pit lane.
+        /// </summary>
+        public (double DistanceToPit, byte PitState, bool InPits) GetPitDistanceData()
+        {
+            if (!_reader.IsConnected) return (0, 0, false);
+            var ps = _reader.GetPlayerScoring();
+            if (!ps.HasValue) return (0, 0, false);
+
+            var  v          = ps.Value;
+            bool inPits     = v.mInPits != 0;
+            byte pitState   = v.mPitState;
+            double trackLen = _reader.ScoringInfo.mLapDist;
+
+            if (inPits || trackLen <= 0)
+                return (0, pitState, inPits);
+
+            // mPitLapDist can be 0 or negative on some tracks — treat as unknown
+            if (v.mPitLapDist <= 0)
+                return (0, pitState, inPits);
+
+            double dist = v.mPitLapDist - v.mLapDist;
+            if (dist < 0) dist += trackLen;   // wraparound après la ligne S/F
+
+            // Sanity check: if distance is more than 90% of the track, the value is suspect
+            if (dist > trackLen * 0.90)
+                return (0, pitState, inPits);
+
+            return (dist, pitState, inPits);
+        }
+
+        /// <summary>
+        /// true quand la voiture du joueur est dans son garage (mInGarageStall != 0).
+        /// Ce champ rF2 est 1 uniquement quand la voiture est physiquement dans un box garage,
+        /// pas lors d'un arrêt pit normal sur la pit lane.
+        /// </summary>
+        public bool GetPlayerInGarage()
+        {
+            if (!_reader.IsConnected) return true;
+            var ps = _reader.GetPlayerScoring();
+            if (!ps.HasValue) return true;
+            return ps.Value.mInGarageStall != 0;
         }
 
         public sbyte[] GetSectorFlags()
@@ -1084,18 +1424,31 @@ namespace LMUOverlay.Services
                         _bestLapProfile.AddRange(_currentLapProfile);
                     }
 
+                    double s1 = scr.mLastSector1;
+                    double s2 = scr.mLastSector2 > 0 ? scr.mLastSector2 - scr.mLastSector1 : 0;
+                    double s3 = scr.mLastSector2 > 0 ? scr.mLastLapTime - scr.mLastSector2 : 0;
+
                     _lapHistory.Add(new LapRecord
                     {
-                        LapNumber = _deltaLastLap,
-                        LapTime = scr.mLastLapTime,
-                        Sector1 = scr.mLastSector1,
-                        Sector2 = scr.mLastSector2 > 0 ? scr.mLastSector2 - scr.mLastSector1 : 0,
-                        Sector3 = scr.mLastLapTime - scr.mLastSector2,
-                        FuelUsed = _fuelSamples.Count > 0 ? _fuelSamples[^1] : 0,
+                        LapNumber     = _deltaLastLap,
+                        LapTime       = scr.mLastLapTime,
+                        Sector1       = s1,
+                        Sector2       = s2,
+                        Sector3       = s3,
+                        FuelUsed      = _fuelSamples.Count > 0 ? _fuelSamples[^1] : 0,
                         FuelRemaining = tel.mFuel,
-                        TireCompound = rF2Helper.Str(tel.mFrontTireCompoundName),
-                        TrackTemp = _reader.ScoringInfo.mTrackTemp
+                        TireCompound  = rF2Helper.Str(tel.mFrontTireCompoundName),
+                        TrackTemp     = _reader.ScoringInfo.mTrackTemp
                     });
+
+                    LapCompleted?.Invoke(new LapCompletedArgs(
+                        Circuit:  rF2Helper.Str(_reader.ScoringInfo.mTrackName),
+                        CarClass: rF2Helper.Str(scr.mVehicleClass),
+                        CarName:  rF2Helper.Str(scr.mVehicleName),
+                        LapTime:  scr.mLastLapTime,
+                        Sector1:  s1,
+                        Sector2:  s2,
+                        Sector3:  s3));
                 }
                 _currentLapProfile.Clear();
                 _lastProfileDist = -1;
@@ -1167,6 +1520,21 @@ namespace LMUOverlay.Services
 
         public List<LapRecord> GetLapHistory() => new(_lapHistory);
 
+        /// <summary>
+        /// Déclenché chaque fois qu'un tour valide est enregistré.
+        /// Payload : circuit, classe, voiture, temps + secteurs.
+        /// </summary>
+        public event Action<LapCompletedArgs>? LapCompleted;
+
+        public record LapCompletedArgs(
+            string Circuit,
+            string CarClass,
+            string CarName,
+            double LapTime,
+            double Sector1,
+            double Sector2,
+            double Sector3);
+
         // ====================================================================
         // TELEMETRY TRACES
         // ====================================================================
@@ -1177,8 +1545,30 @@ namespace LMUOverlay.Services
         private const int MAX_TRACES = 30;
         private const double TRACE_INTERVAL_M = 5.0; // sample every 5m
 
+        // ── Tours de référence ──────────────────────────────────────────────────
+        // All-time best : persisté par piste+classe dans %APPDATA%\DouzeAssistance\bestlaps\
+        private LapTrace? _allTimeBestTrace;
+        private string    _allTimeBestKey  = ""; // "trackName|carClass"
+        // Meilleur adversaire de la session (vitesse uniquement)
+        private LapTrace? _opponentBestTrace;
+        private double    _opponentBestTime = double.MaxValue;
+        // Suivi temps réel des adversaires
+        private readonly Dictionary<int, List<TelemetryPoint>> _vehicleTraces   = new();
+        private readonly Dictionary<int, int>    _vehicleLastLap  = new();
+        private readonly Dictionary<int, double> _vehicleLastDist = new();
+
+        /// <summary>
+        /// Quand false, la collecte de points de télémétrie est suspendue.
+        /// UpdateEnergyAndFuelTracking() continue de tourner indépendamment.
+        /// </summary>
+        public bool IsRecordingTelemetry { get; set; } = true;
+
         public void UpdateTelemetryTrace()
         {
+            // Update fuel/energy tracking once per tick (before any GetFuelData() calls)
+            UpdateEnergyAndFuelTracking();
+
+            if (!IsRecordingTelemetry) return;
             if (!_reader.IsConnected) return;
             var ps = _reader.GetPlayerScoring();
             var pt = _reader.GetPlayerTelemetry();
@@ -1187,6 +1577,27 @@ namespace LMUOverlay.Services
             var scr = ps.Value;
             var tel = pt.Value;
             var info = _reader.ScoringInfo;
+
+            // ── Détection de changement de piste/classe → charger le best all-time ──
+            string trackName = rF2Helper.Str(info.mTrackName);
+            string carClass  = rF2Helper.Str(scr.mVehicleClass);
+            string trackKey  = $"{trackName}|{carClass}";
+            if (trackKey != _allTimeBestKey && !string.IsNullOrEmpty(trackName))
+            {
+                _allTimeBestKey = trackKey;
+                TryLoadAllTimeBest(trackName, carClass);
+                TryLoadOpponentBest(trackName, carClass);
+                // Reset all session data — new circuit/class, nothing carries over
+                _lapTraces.Clear();
+                _currentTrace.Clear();
+                _lastTraceDist = -1;
+                _traceLastLap  = -1;
+                _vehicleTraces.Clear();
+                _vehicleLastLap.Clear();
+                _vehicleLastDist.Clear();
+                _opponentBestTrace = null;
+                _opponentBestTime  = double.MaxValue;
+            }
 
             double lapLength = info.mLapDist; // mLapDist in ScoringInfo = total track length
             if (lapLength <= 0) return;
@@ -1209,6 +1620,19 @@ namespace LMUOverlay.Services
                     _lapTraces.Add(trace);
                     if (_lapTraces.Count > MAX_TRACES)
                         _lapTraces.RemoveAt(0);
+
+                    // ── Mise à jour du meilleur tour all-time ──────────────────
+                    if (_allTimeBestTrace == null || scr.mLastLapTime < _allTimeBestTrace.LapTime)
+                    {
+                        _allTimeBestTrace = new LapTrace
+                        {
+                            LapNumber = -1,
+                            LapTime   = scr.mLastLapTime,
+                            Compound  = "ALL-TIME BEST",
+                            Points    = new List<TelemetryPoint>(_currentTrace)
+                        };
+                        SaveAllTimeBest(trackName, carClass);
+                    }
                 }
                 _currentTrace.Clear();
                 _lastTraceDist = -1;
@@ -1239,7 +1663,273 @@ namespace LMUOverlay.Services
 
         private int _traceLastLap = -1;
 
-        public List<LapTrace> GetLapTraces() => new(_lapTraces);
+        public List<LapTrace>  GetLapTraces()        => new(_lapTraces);
+        public LapTrace?       GetAllTimeBestTrace() => _allTimeBestTrace;
+        public LapTrace?       GetOpponentBestTrace() => _opponentBestTrace;
+
+        // ====================================================================
+        // SUIVI DES ADVERSAIRES
+        // ====================================================================
+
+        /// <summary>
+        /// À appeler à chaque tick depuis OverlayManager.
+        /// Suit la position de chaque adversaire (hors pits) et sauvegarde
+        /// la trace du meilleur temps de session quand un tour est complété.
+        /// </summary>
+        public void UpdateOpponentTraces()
+        {
+            if (!_reader.IsConnected) return;
+
+            var    scoring  = _reader.Scoring;
+            double trackLen = scoring.mScoringInfo.mLapDist;
+            if (trackLen <= 0 || scoring.mVehicles == null) return;
+
+            int count = Math.Min(scoring.mScoringInfo.mNumVehicles, scoring.mVehicles.Length);
+
+            // Determine player vehicle class so we only track same-class opponents
+            string playerClass = "";
+            for (int i = 0; i < count; i++)
+            {
+                if (scoring.mVehicles[i].mIsPlayer != 0)
+                {
+                    playerClass = rF2Helper.Str(scoring.mVehicles[i].mVehicleClass);
+                    break;
+                }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                var v = scoring.mVehicles[i];
+                if (v.mIsPlayer != 0) continue; // ignorer le joueur
+                if (v.mInPits != 0)  continue;  // ignorer les voitures aux stands
+                // Only track opponents of the same class as the player
+                if (!string.IsNullOrEmpty(playerClass) &&
+                    rF2Helper.Str(v.mVehicleClass) != playerClass) continue;
+
+                int    vid        = v.mID;
+                int    currentLap = v.mTotalLaps;
+                double dist       = v.mLapDist;
+
+                // ── Détection fin de tour ─────────────────────────────────────
+                if (_vehicleLastLap.TryGetValue(vid, out int lastLap) &&
+                    lastLap >= 0 && lastLap != currentLap)
+                {
+                    double lapTime = v.mLastLapTime;
+                    if (lapTime > 10 &&
+                        _vehicleTraces.TryGetValue(vid, out var vtrace) &&
+                        vtrace.Count > 10 &&
+                        lapTime < _opponentBestTime)
+                    {
+                        _opponentBestTime  = lapTime;
+                        string driverName  = rF2Helper.Str(v.mDriverName);
+                        _opponentBestTrace = new LapTrace
+                        {
+                            LapNumber = -2,
+                            LapTime   = lapTime,
+                            Compound  = string.IsNullOrEmpty(driverName) ? "ADVERSAIRE" : driverName,
+                            Points    = new List<TelemetryPoint>(vtrace)
+                        };
+                        // Persister immédiatement sur disque
+                        var kp = _allTimeBestKey.Split('|');
+                        if (kp.Length == 2) SaveOpponentBest(kp[0], kp[1]);
+                    }
+                    // Nouveau tour : réinitialiser la trace
+                    _vehicleTraces[vid]   = new List<TelemetryPoint>();
+                    _vehicleLastDist[vid] = -999;
+                }
+
+                _vehicleLastLap[vid] = currentLap;
+
+                if (!_vehicleTraces.ContainsKey(vid))
+                {
+                    _vehicleTraces[vid]   = new List<TelemetryPoint>();
+                    _vehicleLastDist[vid] = -999;
+                }
+
+                // ── Échantillonnage tous les TRACE_INTERVAL_M ─────────────────
+                double lastDist = _vehicleLastDist.GetValueOrDefault(vid, -999);
+                if (dist < lastDist + TRACE_INTERVAL_M) continue;
+                _vehicleLastDist[vid] = dist;
+
+                double speed = Math.Sqrt(
+                    v.mLocalVel.x * v.mLocalVel.x +
+                    v.mLocalVel.z * v.mLocalVel.z) * 3.6; // m/s → km/h
+
+                _vehicleTraces[vid].Add(new TelemetryPoint
+                {
+                    TrackPos = Math.Clamp(dist / trackLen, 0, 1),
+                    Speed    = speed
+                    // Throttle, Brake, RPM, etc. non disponibles pour les adversaires
+                });
+            }
+        }
+
+        // ====================================================================
+        // PROPRIÉTÉS PUBLIQUES — circuit/classe courants
+        // ====================================================================
+
+        public string CurrentTrackName
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_allTimeBestKey)) return "";
+                var p = _allTimeBestKey.Split('|');
+                return p.Length > 0 ? p[0] : "";
+            }
+        }
+
+        public string CurrentCarClass
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_allTimeBestKey)) return "";
+                var p = _allTimeBestKey.Split('|');
+                return p.Length > 1 ? p[1] : "";
+            }
+        }
+
+        /// <summary>
+        /// Permet à TelemetryPanel de forcer le chargement des bests
+        /// pour le circuit/classe d'un fichier importé.
+        /// </summary>
+        public void LoadBestsForTrack(string trackName, string carClass)
+        {
+            TryLoadAllTimeBest(trackName, carClass);
+            TryLoadOpponentBest(trackName, carClass);
+        }
+
+        // ====================================================================
+        // PERSISTANCE DU BEST ALL-TIME
+        // ====================================================================
+
+        private static string BestLapFilePath(string track, string carClass)
+        {
+            string dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "DouzeAssistance", "bestlaps");
+            System.IO.Directory.CreateDirectory(dir);
+            string key  = $"{track}_{carClass}";
+            string safe = new string(key.Select(c =>
+                System.IO.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray()).Trim();
+            return System.IO.Path.Combine(dir, safe + ".json");
+        }
+
+        private void TryLoadAllTimeBest(string track, string carClass)
+        {
+            _allTimeBestTrace = null;
+            string path = BestLapFilePath(track, carClass);
+            if (!System.IO.File.Exists(path)) return;
+            try
+            {
+                var json = System.IO.File.ReadAllText(path);
+                var dto  = Newtonsoft.Json.JsonConvert.DeserializeObject<BestLapDto>(json);
+                if (dto?.Points == null || dto.Points.Count == 0) return;
+
+                _allTimeBestTrace = new LapTrace
+                {
+                    LapNumber = -1,
+                    LapTime   = dto.LapTime,
+                    Compound  = "ALL-TIME BEST",
+                    Points    = dto.Points.Select(p => new TelemetryPoint
+                    {
+                        TrackPos = p[0], Speed    = p[1],
+                        Throttle = p[2], Brake    = p[3],
+                        Gear     = (int)p[4], RPM = p[5],
+                        Steering = p[6], Elapsed  = p[7]
+                    }).ToList()
+                };
+            }
+            catch { /* fichier corrompu : on ignore */ }
+        }
+
+        private void SaveAllTimeBest(string track, string carClass)
+        {
+            if (_allTimeBestTrace == null) return;
+            try
+            {
+                var dto = new BestLapDto
+                {
+                    TrackName = track,
+                    CarClass  = carClass,
+                    LapTime   = _allTimeBestTrace.LapTime,
+                    Points    = _allTimeBestTrace.Points.Select(p => new[]
+                    {
+                        p.TrackPos, p.Speed, p.Throttle, p.Brake,
+                        (double)p.Gear, p.RPM, p.Steering, p.Elapsed
+                    }).ToList()
+                };
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(dto);
+                System.IO.File.WriteAllText(BestLapFilePath(track, carClass), json);
+            }
+            catch { /* silencieux */ }
+        }
+
+        private static string OpponentBestFilePath(string track, string carClass)
+        {
+            string dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "DouzeAssistance", "bestlaps");
+            System.IO.Directory.CreateDirectory(dir);
+            string key  = $"opp_{track}_{carClass}";
+            string safe = new string(key.Select(c =>
+                System.IO.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray()).Trim();
+            return System.IO.Path.Combine(dir, safe + ".json");
+        }
+
+        private void TryLoadOpponentBest(string track, string carClass)
+        {
+            string path = OpponentBestFilePath(track, carClass);
+            if (!System.IO.File.Exists(path)) return;
+            try
+            {
+                var json = System.IO.File.ReadAllText(path);
+                var dto  = Newtonsoft.Json.JsonConvert.DeserializeObject<BestLapDto>(json);
+                if (dto?.Points == null || dto.Points.Count == 0) return;
+                if (dto.LapTime >= _opponentBestTime) return; // session déjà meilleure
+
+                _opponentBestTime  = dto.LapTime;
+                _opponentBestTrace = new LapTrace
+                {
+                    LapNumber = -2,
+                    LapTime   = dto.LapTime,
+                    Compound  = string.IsNullOrEmpty(dto.DriverName) ? "ADVERSAIRE" : dto.DriverName,
+                    Points    = dto.Points.Select(p => new TelemetryPoint
+                    {
+                        TrackPos = p[0], Speed = p[1]
+                    }).ToList()
+                };
+            }
+            catch { /* fichier corrompu : on ignore */ }
+        }
+
+        private void SaveOpponentBest(string track, string carClass)
+        {
+            if (_opponentBestTrace == null) return;
+            try
+            {
+                var dto = new BestLapDto
+                {
+                    TrackName  = track,
+                    CarClass   = carClass,
+                    DriverName = _opponentBestTrace.Compound,
+                    LapTime    = _opponentBestTrace.LapTime,
+                    Points     = _opponentBestTrace.Points.Select(p =>
+                        new[] { p.TrackPos, p.Speed }).ToList()
+                };
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(dto);
+                System.IO.File.WriteAllText(OpponentBestFilePath(track, carClass), json);
+            }
+            catch { /* silencieux */ }
+        }
+
+        private class BestLapDto
+        {
+            public string        TrackName  { get; set; } = "";
+            public string        CarClass   { get; set; } = "";
+            public string        DriverName { get; set; } = "";
+            public double        LapTime    { get; set; }
+            public List<double[]> Points    { get; set; } = new();
+        }
 
         // ====================================================================
         // DAMAGE DATA
@@ -1381,132 +2071,130 @@ namespace LMUOverlay.Services
         }
 
         // ====================================================================
-        // TRACK LIMITS
+        // TRACK MAP — enregistrement du tracé via tous les véhicules
         // ====================================================================
 
-        private int _lastPenaltyCount;
-        private bool _wasOffTrack;
-        private int _offTrackCount;
-        private double _lastOffTrackET;
-        private string _prevLSIRules = "";
-        private string _prevStatusMsg = "";
-        private readonly List<TrackLimitEvent> _trackLimitEvents = new();
-        private int _trackLimitWarnings;
+        private string  _trackRecordingName = "";
+        private bool    _trackRecorded;
+        // Clé = bucket lapDist (tous les 10 m) → position monde ordonnée
+        private readonly SortedDictionary<int, (float X, float Z)> _trackBuckets = new();
 
-        private static readonly string[] OffTrackSurfaces = { "grass", "dirt", "gravel", "sand", "wall" };
-
-        public TrackLimitsData GetTrackLimitsData()
+        public TrackMapData GetTrackMapData()
         {
-            if (!_reader.IsConnected) return new TrackLimitsData();
-            var pt = _reader.GetPlayerTelemetry();
-            var ps = _reader.GetPlayerScoring();
-            if (pt == null || ps == null) return new TrackLimitsData();
+            var vehicles = GetAllVehicles();
+            var orderedPoints = _trackBuckets.Values.ToList();
 
-            var tel = pt.Value;
-            var scr = ps.Value;
-            var ext = _reader.Extended;
-            var info = _reader.ScoringInfo;
-
-            // Wheel surface detection
-            bool[] wheelOff = new bool[4];
-            string[] wheelSurf = new string[4];
-            bool anyOff = false;
-
-            if (tel.mWheels != null && tel.mWheels.Length >= 4)
+            var result = new TrackMapData
             {
-                for (int i = 0; i < 4; i++)
+                TrackPoints   = orderedPoints,
+                Vehicles      = vehicles,
+                TrackRecorded = _trackRecorded,
+                PointCount    = _trackBuckets.Count
+            };
+
+            if (!_reader.IsConnected) return result;
+
+            string trackName = rF2Helper.Str(_reader.ScoringInfo.mTrackName);
+            result.TrackName = trackName;
+
+            // ── Changement de circuit → réinitialiser et tenter de charger ──
+            if (trackName != _trackRecordingName && !string.IsNullOrEmpty(trackName))
+            {
+                _trackRecordingName = trackName;
+                _trackBuckets.Clear();
+                _trackRecorded = false;
+
+                TryLoadTrack(trackName);
+                result.TrackRecorded = _trackRecorded;
+                result.PointCount    = _trackBuckets.Count;
+                result.TrackPoints   = _trackBuckets.Values.ToList();
+                return result;
+            }
+
+            // ── Tracé déjà enregistré : pas d'échantillonnage ───────────────
+            if (_trackRecorded) return result;
+
+            // ── Échantillonnage de TOUS les véhicules ────────────────────────
+            double trackLen = _reader.ScoringInfo.mLapDist;
+            if (trackLen <= 0) return result;
+
+            // Nombre de buckets attendus pour couvrir le circuit entier (1 bucket = 10 m)
+            int expectedBuckets = Math.Max(50, (int)(trackLen / 10));
+
+            foreach (var v in vehicles)
+            {
+                if (v.InPits) continue;
+                double lapDist = v.LapDistance;
+                if (lapDist < 0) continue;
+
+                int bucket = (int)(lapDist / 10.0);
+                if (!_trackBuckets.ContainsKey(bucket))
+                    _trackBuckets[bucket] = ((float)v.PosX, (float)v.PosZ);
+            }
+
+            // ── Sauvegarde quand ≥ 80 % du circuit est couvert ──────────────
+            if (_trackBuckets.Count >= expectedBuckets * 0.8)
+            {
+                SaveTrack(trackName);
+                _trackRecorded = true;
+            }
+
+            result.PointCount    = _trackBuckets.Count;
+            result.TrackRecorded = _trackRecorded;
+            result.TrackPoints   = _trackBuckets.Values.ToList();
+            return result;
+        }
+
+        private static string TrackFilePath(string trackName)
+        {
+            string dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "DouzeAssistance", "tracks");
+            System.IO.Directory.CreateDirectory(dir);
+            string safe = new string(trackName.Select(c =>
+                System.IO.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray()).Trim();
+            return System.IO.Path.Combine(dir, safe + ".json");
+        }
+
+        private void TryLoadTrack(string trackName)
+        {
+            string path = TrackFilePath(trackName);
+            if (!System.IO.File.Exists(path)) return;
+            try
+            {
+                var json = System.IO.File.ReadAllText(path);
+                var data = Newtonsoft.Json.JsonConvert.DeserializeObject<TrackFileDto>(json);
+                if (data?.Points != null && data.Points.Count > 0)
                 {
-                    var w = tel.mWheels[i];
-                    string terrain = rF2Helper.Str(w.mTerrainName).ToLowerInvariant();
-                    byte surfType = w.mSurfaceType;
-
-                    // Off-track: surface type 2=grass, 3=dirt, 4=gravel, or terrain name
-                    bool isOff = surfType >= 2 && surfType <= 4;
-                    if (!isOff && !string.IsNullOrEmpty(terrain))
-                        isOff = OffTrackSurfaces.Any(s => terrain.Contains(s));
-
-                    wheelOff[i] = isOff;
-                    wheelSurf[i] = surfType switch
-                    {
-                        0 => "Sec",
-                        1 => "Mouillé",
-                        2 => "Herbe",
-                        3 => "Terre",
-                        4 => "Gravier",
-                        5 => "Vibreur",
-                        6 => "Spécial",
-                        _ => $"?{surfType}"
-                    };
-                    if (isOff) anyOff = true;
+                    // Les points chargés sont déjà ordonnés — on les réinsère avec des clés séquentielles
+                    for (int i = 0; i < data.Points.Count; i++)
+                        _trackBuckets[i] = ((float)data.Points[i][0], (float)data.Points[i][1]);
+                    _trackRecorded = true;
                 }
             }
+            catch { /* fichier corrompu : on ignore */ }
+        }
 
-            // Detect new off-track event
-            if (anyOff && !_wasOffTrack)
+        private void SaveTrack(string trackName)
+        {
+            try
             {
-                _offTrackCount++;
-                _lastOffTrackET = info.mCurrentET;
-                _trackLimitWarnings++;
-
-                _trackLimitEvents.Add(new TrackLimitEvent
+                var dto = new TrackFileDto
                 {
-                    LapNumber = scr.mTotalLaps,
-                    ElapsedTime = info.mCurrentET,
-                    Type = "Hors-piste",
-                    Detail = string.Join("+", wheelOff.Select((o, i) => o ? new[] { "AG", "AD", "RG", "RD" }[i] : null).Where(s => s != null))
-                });
-                if (_trackLimitEvents.Count > 20) _trackLimitEvents.RemoveAt(0);
+                    TrackName = trackName,
+                    // Les valeurs sont déjà triées par clé (lapDist bucket)
+                    Points    = _trackBuckets.Values.Select(p => new[] { (double)p.X, (double)p.Z }).ToList()
+                };
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(dto);
+                System.IO.File.WriteAllText(TrackFilePath(trackName), json);
             }
-            _wasOffTrack = anyOff;
+            catch { /* silencieux */ }
+        }
 
-            // Detect penalty changes
-            int penalties = scr.mNumPenalties;
-            if (penalties > _lastPenaltyCount && _lastPenaltyCount >= 0)
-            {
-                _trackLimitEvents.Add(new TrackLimitEvent
-                {
-                    LapNumber = scr.mTotalLaps,
-                    ElapsedTime = info.mCurrentET,
-                    Type = "Pénalité",
-                    Detail = $"Total: {penalties}"
-                });
-                if (_trackLimitEvents.Count > 20) _trackLimitEvents.RemoveAt(0);
-            }
-            _lastPenaltyCount = penalties;
-
-            // Read LSI rules message (may contain track limit info)
-            string lsiMsg = ext.mLSIRulesInstructionMessage != null
-                ? rF2Helper.Str(ext.mLSIRulesInstructionMessage) : "";
-            if (!string.IsNullOrEmpty(lsiMsg) && lsiMsg != _prevLSIRules)
-            {
-                _prevLSIRules = lsiMsg;
-                _trackLimitEvents.Add(new TrackLimitEvent
-                {
-                    LapNumber = scr.mTotalLaps,
-                    ElapsedTime = info.mCurrentET,
-                    Type = "Message",
-                    Detail = lsiMsg
-                });
-                if (_trackLimitEvents.Count > 20) _trackLimitEvents.RemoveAt(0);
-            }
-
-            // Status message
-            string statusMsg = ext.mStatusMessage != null
-                ? rF2Helper.Str(ext.mStatusMessage) : "";
-
-            return new TrackLimitsData
-            {
-                PenaltyCount = penalties,
-                TrackLimitWarnings = _trackLimitWarnings,
-                WheelOffTrack = wheelOff,
-                WheelSurface = wheelSurf,
-                OffTrackCount = _offTrackCount,
-                LastOffTrackTime = _lastOffTrackET,
-                LastLSIMessage = lsiMsg,
-                StatusMessage = statusMsg,
-                IsOffTrackNow = anyOff,
-                RecentEvents = new List<TrackLimitEvent>(_trackLimitEvents)
-            };
+        private class TrackFileDto
+        {
+            public string TrackName { get; set; } = "";
+            public List<double[]> Points { get; set; } = new();
         }
     }
 }

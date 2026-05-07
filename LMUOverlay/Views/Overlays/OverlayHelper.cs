@@ -41,6 +41,10 @@ namespace LMUOverlay.Views.Overlays
         // Border
         public static readonly Color BorderColor = Color.FromRgb(0x3A, 0x3A, 0x3A); // #3A3A3A
 
+        // Font families
+        public static readonly FontFamily FontConsolas  = new("Consolas");
+        public static readonly FontFamily FontSegoeUISB = new("Segoe UI Semibold");
+
         // ================================================================
         // BORDER / CONTAINERS
         // ================================================================
@@ -74,7 +78,7 @@ namespace LMUOverlay.Views.Overlays
                 Text        = text,
                 FontSize    = 8,
                 FontWeight  = FontWeights.SemiBold,
-                FontFamily  = new FontFamily("Segoe UI Semibold"),
+                FontFamily  = FontSegoeUISB,
                 Foreground  = new SolidColorBrush(TextSecondary)
             }
         };
@@ -88,7 +92,7 @@ namespace LMUOverlay.Views.Overlays
             Text                = text,
             FontSize            = 9,
             FontWeight          = FontWeights.SemiBold,
-            FontFamily          = new FontFamily("Segoe UI Semibold"),
+            FontFamily          = FontSegoeUISB,
             Foreground          = new SolidColorBrush(TextSecondary),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin              = new Thickness(0, 0, 0, 3)
@@ -99,7 +103,7 @@ namespace LMUOverlay.Views.Overlays
             Text                = text,
             FontSize            = 7,
             FontWeight          = FontWeights.SemiBold,
-            FontFamily          = new FontFamily("Consolas"),
+            FontFamily          = FontConsolas,
             Foreground          = new SolidColorBrush(TextMuted),
             HorizontalAlignment = HorizontalAlignment.Center
         };
@@ -109,7 +113,7 @@ namespace LMUOverlay.Views.Overlays
             Text                = "0",
             FontSize            = fontSize,
             FontWeight          = FontWeights.Bold,
-            FontFamily          = new FontFamily("Consolas"),
+            FontFamily          = FontConsolas,
             Foreground          = new SolidColorBrush(TextPrimary),
             HorizontalAlignment = HorizontalAlignment.Center
         };
@@ -138,8 +142,8 @@ namespace LMUOverlay.Views.Overlays
             if (c.Contains("HYPERCAR") || c.Contains("LMH") || c.Contains("LMDH"))
                 return Color.FromRgb(255, 24, 1);
             if (c.Contains("LMP2"))  return Color.FromRgb(0, 144, 255);
-            if (c.Contains("GTE") || c.Contains("LMGT")) return Color.FromRgb(0, 179, 65);
-            if (c.Contains("GT3"))  return Color.FromRgb(255, 183, 0);
+            if (c.Contains("GTE") || c.Contains("LMGT")) return Color.FromRgb(255, 140, 0);
+            if (c.Contains("GT3"))  return Color.FromRgb(0, 200, 80);
             return Color.FromRgb(180, 180, 180);
         }
 

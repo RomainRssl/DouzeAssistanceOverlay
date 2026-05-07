@@ -29,10 +29,13 @@ namespace LMUOverlay.Models
         public OverlaySettings GForce { get; set; } = new("Force G", false);
         public OverlaySettings Dashboard { get; set; } = new("Dashboard", false);
         public OverlaySettings RelativeAheadBehind { get; set; } = new("Devant / Derrière", false);
-        public OverlaySettings TrackLimits { get; set; } = new("Track Limits", false);
         public OverlaySettings BlindSpot { get; set; } = new("Angles Morts", false);
         public OverlaySettings Rejoin { get; set; } = new("Retour en Piste", false);
+        public OverlaySettings Note { get; set; } = new("Note", false);
+        public OverlaySettings Compteur { get; set; } = new("Compteur", false);
+        public OverlaySettings Clock { get; set; } = new("Horloge", false);
 
+        public ChronoSettings Chrono { get; set; } = new();
         public GeneralSettings General { get; set; } = new();
         public StandingsColumnConfig StandingsColumns { get; set; } = new();
         public StandingsDisplayConfig StandingsDisplay { get; set; } = new();
@@ -53,6 +56,21 @@ namespace LMUOverlay.Models
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 
+    // ── Hotkey binding ────────────────────────────────────────────────────────
+
+    public enum HotkeyInputType { None, Keyboard, Mouse, Joystick }
+
+    public class HotkeyBinding
+    {
+        public HotkeyInputType Type      { get; set; } = HotkeyInputType.None;
+        public int             Code      { get; set; }   // VKey, WM_ code, or joystick button index
+        public int             Modifiers { get; set; }   // bitmask: Ctrl=1, Alt=2, Shift=4
+        public string          Device    { get; set; } = ""; // GUID string for joystick device
+        public string          Display   { get; set; } = ""; // "F5", "Ctrl+F2", "Souris X2", "Wheel Btn 7"
+
+        [JsonIgnore] public bool IsEmpty => Type == HotkeyInputType.None || string.IsNullOrEmpty(Display);
+    }
+
     /// <summary>
     /// Per-overlay settings: enabled, position, scale, opacity, and specific options.
     /// </summary>
@@ -61,6 +79,7 @@ namespace LMUOverlay.Models
         private bool _isEnabled;
         private double _scale = 1.0;
         private double _opacity = 0.9;
+        private double _backgroundOpacity = 1.0;
         private double _posX = 100;
         private double _posY = 100;
         private bool _isLocked;
@@ -85,6 +104,13 @@ namespace LMUOverlay.Models
         {
             get => _opacity;
             set { _opacity = Math.Clamp(value, 0.1, 1.0); OnPropertyChanged(); }
+        }
+
+        /// <summary>Background layer opacity only (0 = transparent bg, 1 = fully opaque bg).</summary>
+        public double BackgroundOpacity
+        {
+            get => _backgroundOpacity;
+            set { _backgroundOpacity = Math.Clamp(value, 0.0, 1.0); OnPropertyChanged(); }
         }
 
         public double PosX
@@ -122,6 +148,9 @@ namespace LMUOverlay.Models
         // Dictionary for overlay-specific custom settings
         public Dictionary<string, object> CustomOptions { get; set; } = new();
 
+        // Hotkey binding to toggle this overlay globally (keyboard / mouse / joystick)
+        public HotkeyBinding Hotkey { get; set; } = new();
+
         public OverlaySettings() { Name = ""; }
 
         public OverlaySettings(string name, bool enabled)
@@ -145,12 +174,10 @@ namespace LMUOverlay.Models
         public bool ClassBar { get; set; } = true;
         public bool Driver { get; set; } = true;
         public bool CarName { get; set; } = true;
-        public bool TotalLaps { get; set; } = true;
-        public bool LapProgress { get; set; } = true;
+        public bool CarNumber { get; set; } = false;
+        public bool LapProgress { get; set; } = false;
         public bool BestLap { get; set; } = true;
         public bool LastLap { get; set; } = true;
-        public bool Delta { get; set; } = true;
-        public bool GapToLeader { get; set; } = true;
         public bool GapToNext { get; set; } = true;
         public bool Sector1 { get; set; } = false;
         public bool Sector2 { get; set; } = false;
@@ -161,44 +188,51 @@ namespace LMUOverlay.Models
         public bool Speed { get; set; } = false;
         public bool Penalties { get; set; } = false;
         public bool SectorStatus { get; set; } = true;
+        public bool Delta { get; set; } = false;
+        public bool TotalLaps { get; set; } = false;
+        public bool GapToLeader { get; set; } = false;
+        public bool Damage { get; set; } = false;
+        public bool StintLaps { get; set; } = false;
+        public bool StintTime { get; set; } = false;
         public int MaxEntriesPerClass { get; set; } = 10;
         public int OtherClassCount { get; set; } = 3;
         public bool ShowSessionInfo { get; set; } = true;
 
         public static readonly (string Key, string Label)[] AllColumns =
         {
-            ("Position", "Position"),
-            ("ClassBar", "Barre de classe"),
-            ("Driver", "Pilote"),
-            ("CarName", "Nom voiture"),
-            ("TotalLaps", "Tours"),
-            ("LapProgress", "Progression %"),
-            ("BestLap", "Meilleur tour"),
-            ("LastLap", "Dernier tour"),
-            ("Delta", "Delta"),
+            ("Position",    "Position"),
+            ("ClassBar",    "Barre de classe"),
+            ("Driver",      "Pilote"),
+            ("CarName",     "Nom voiture"),
+            ("CarNumber",   "Numéro de course"),
+            ("PitStops",    "Arrêts pit"),
+            ("GapToNext",   "Écart devant"),
             ("GapToLeader", "Écart leader"),
-            ("GapToNext", "Écart devant"),
-            ("Sector1", "Secteur 1"),
-            ("Sector2", "Secteur 2"),
-            ("Sector3", "Secteur 3"),
-            ("SectorStatus", "Secteurs (indicateurs)"),
-            ("TireCompound", "Pneus"),
-            ("PitStops", "Arrêts"),
-            ("Speed", "Vitesse"),
-            ("Penalties", "Pénalités"),
-            ("Indicator", "Indicateur pit/flag"),
+            ("Delta",       "Delta (dernier - meilleur)"),
+            ("BestLap",     "Meilleur tour"),
+            ("LastLap",     "Dernier tour"),
+            ("TotalLaps",   "Tours totaux"),
+            ("StintLaps",   "Tours de relais"),
+            ("StintTime",   "Temps de relais"),
+            ("LapProgress", "Progression %"),
+            ("TireCompound","Pneus"),
+            ("SectorStatus","Secteurs (indicateurs)"),
+            ("Damage",      "Dégâts %"),
+            ("Speed",       "Vitesse"),
+            ("Penalties",   "Pénalités"),
+            ("Indicator",   "Indicateur pit/flag"),
         };
 
         public bool IsVisible(string key) => key switch
         {
-            "Position" => Position, "ClassBar" => ClassBar, "Driver" => Driver,
-            "CarName" => CarName, "TotalLaps" => TotalLaps, "LapProgress" => LapProgress,
-            "BestLap" => BestLap, "LastLap" => LastLap, "Delta" => Delta,
-            "GapToLeader" => GapToLeader, "GapToNext" => GapToNext,
-            "Sector1" => Sector1, "Sector2" => Sector2, "Sector3" => Sector3,
-            "SectorStatus" => SectorStatus,
-            "TireCompound" => TireCompound, "PitStops" => PitStops,
-            "Speed" => Speed, "Penalties" => Penalties, "Indicator" => Indicator,
+            "Position"    => Position,    "ClassBar"    => ClassBar,    "Driver"      => Driver,
+            "CarName"     => CarName,     "CarNumber"   => CarNumber,   "TotalLaps"   => TotalLaps,   "LapProgress" => LapProgress,
+            "BestLap"     => BestLap,     "LastLap"     => LastLap,     "Delta"       => Delta,
+            "GapToLeader" => GapToLeader, "GapToNext"   => GapToNext,
+            "Sector1"     => Sector1,     "Sector2"     => Sector2,     "Sector3"     => Sector3,
+            "SectorStatus"=> SectorStatus,"TireCompound"=> TireCompound,"PitStops"    => PitStops,
+            "Speed"       => Speed,       "Penalties"   => Penalties,   "Indicator"   => Indicator,
+            "Damage"      => Damage,      "StintLaps"   => StintLaps,   "StintTime"   => StintTime,
             _ => true
         };
 
@@ -256,6 +290,87 @@ namespace LMUOverlay.Models
             set { _hideInMenus = value; OnPropertyChanged(); }
         }
 
+        // ── Leaderboard ──────────────────────────────────────────────────────
+        private string _leaderboardPrenom  = "";
+        private string _leaderboardNom     = "";
+        private string _leaderboardDiscord = "";
+        private string _leaderboardToken   = "";
+        private bool   _sendToLeaderboard;
+
+        public string LeaderboardPrenom
+        {
+            get => _leaderboardPrenom;
+            set { _leaderboardPrenom = (value ?? "").Trim(); OnPropertyChanged(); }
+        }
+
+        public string LeaderboardNom
+        {
+            get => _leaderboardNom;
+            set { _leaderboardNom = (value ?? "").Trim(); OnPropertyChanged(); }
+        }
+
+        public string LeaderboardDiscord
+        {
+            get => _leaderboardDiscord;
+            set { _leaderboardDiscord = (value ?? "").Trim(); OnPropertyChanged(); }
+        }
+
+        /// <summary>Token unique généré au premier lancement — authentifie le pilote.</summary>
+        public string LeaderboardToken
+        {
+            get => _leaderboardToken;
+            set { _leaderboardToken = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>Envoyer automatiquement les temps au classement en ligne.</summary>
+        public bool SendToLeaderboard
+        {
+            get => _sendToLeaderboard;
+            set { _sendToLeaderboard = value; OnPropertyChanged(); }
+        }
+
+        // ── Voice / Alertes vocales ──────────────────────────────────────────
+        private bool   _voiceEnabled;
+        private int    _voiceVolume = 80;
+        private int    _voiceRate;
+        private string _voiceName = "";
+        private string _voicePackName = "";
+        private bool   _alertFuel = true;
+        private bool   _alertFlags = true;
+        private bool   _alertGap = true;
+        private bool   _alertLap = true;
+        private bool   _alertPosition = true;
+        private bool   _alertSpotter = true;
+        private double _gapAlertThresholdSeconds = 1.0;
+
+        public bool   VoiceEnabled             { get => _voiceEnabled;  set { _voiceEnabled  = value; OnPropertyChanged(); } }
+        public int    VoiceVolume              { get => _voiceVolume;   set { _voiceVolume   = Math.Clamp(value, 0, 100); OnPropertyChanged(); } }
+        public int    VoiceRate                { get => _voiceRate;     set { _voiceRate     = Math.Clamp(value, -10, 10); OnPropertyChanged(); } }
+        public string VoiceName                { get => _voiceName;     set { _voiceName     = value ?? ""; OnPropertyChanged(); } }
+        public string VoicePackName            { get => _voicePackName; set { _voicePackName = value ?? ""; OnPropertyChanged(); } }
+        public bool   AlertFuel                { get => _alertFuel;     set { _alertFuel     = value; OnPropertyChanged(); } }
+        public bool   AlertFlags               { get => _alertFlags;    set { _alertFlags    = value; OnPropertyChanged(); } }
+        public bool   AlertGap                 { get => _alertGap;      set { _alertGap      = value; OnPropertyChanged(); } }
+        public bool   AlertLap                 { get => _alertLap;      set { _alertLap      = value; OnPropertyChanged(); } }
+        public bool   AlertPosition            { get => _alertPosition; set { _alertPosition = value; OnPropertyChanged(); } }
+        public bool   AlertSpotter             { get => _alertSpotter;  set { _alertSpotter  = value; OnPropertyChanged(); } }
+        public double GapAlertThresholdSeconds { get => _gapAlertThresholdSeconds; set { _gapAlertThresholdSeconds = Math.Max(0.1, value); OnPropertyChanged(); } }
+
+        // ── Cooldowns (secondes entre deux répétitions de la même alerte) ─
+        private int _cooldownBlueFlagSeconds    = 10;
+        private int _cooldownYellowFlagSeconds  = 30;
+        private int _cooldownFuelCriticalSeconds = 30;
+        private int _cooldownGapSeconds         = 15;
+        private int _cooldownPositionSeconds    = 3;
+        private int _cooldownSpotterSeconds     = 3;
+
+        public int CooldownBlueFlagSeconds    { get => _cooldownBlueFlagSeconds;    set { _cooldownBlueFlagSeconds    = Math.Max(1, value); OnPropertyChanged(); } }
+        public int CooldownYellowFlagSeconds  { get => _cooldownYellowFlagSeconds;  set { _cooldownYellowFlagSeconds  = Math.Max(1, value); OnPropertyChanged(); } }
+        public int CooldownFuelCriticalSeconds { get => _cooldownFuelCriticalSeconds; set { _cooldownFuelCriticalSeconds = Math.Max(1, value); OnPropertyChanged(); } }
+        public int CooldownGapSeconds         { get => _cooldownGapSeconds;         set { _cooldownGapSeconds         = Math.Max(1, value); OnPropertyChanged(); } }
+        public int CooldownPositionSeconds    { get => _cooldownPositionSeconds;    set { _cooldownPositionSeconds    = Math.Max(1, value); OnPropertyChanged(); } }
+        public int CooldownSpotterSeconds     { get => _cooldownSpotterSeconds;     set { _cooldownSpotterSeconds     = Math.Max(1, value); OnPropertyChanged(); } }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
@@ -302,8 +417,12 @@ namespace LMUOverlay.Models
         public double TimeIntoLap { get; set; }
         public double LapStartET { get; set; }
         public byte PitState { get; set; }
+        public float PitLapDist { get; set; }   // distance de l'entrée des pits sur le tour (m)
         public int LapsBehindLeader { get; set; }
         public string TireCompound { get; set; } = "";
+        public string FrontTireCompound { get; set; } = "";
+        public string RearTireCompound  { get; set; } = "";
+        public string UpgradePack       { get; set; } = "";
         public double Fuel { get; set; }
 
         // Sector status (for color-coded improvement indicators)
@@ -323,6 +442,10 @@ namespace LMUOverlay.Models
         public double DamagePercent { get; set; }     // 0-100%
         public double EnergyPercent { get; set; }     // 0-100% battery
         public int ClassPosition { get; set; }        // position within class
+
+        // Stint tracking (calculé dans DataService)
+        public int StintLaps { get; set; }            // tours depuis le dernier arrêt pit
+        public double StintTime { get; set; }         // secondes depuis le dernier arrêt pit
     }
 
     public enum SectorStatus
@@ -391,6 +514,12 @@ namespace LMUOverlay.Models
         public PitWindowState WindowState { get; set; }
         public int ValidFuelSamples { get; set; }
         public int ValidEnergySamples { get; set; }
+
+        // Virtual Energy (VE) — Hypercar & GT3 only
+        public string PlayerVehicleClass { get; set; } = "";
+        public bool   HasVirtualEnergy   { get; set; }
+        public double EnergyToEnd        { get; set; }  // % VE needed = raceLapsLeft × C_ve
+        public double EnergyDeficit      { get; set; }  // max(0, EnergyToEnd - CurrentEnergy)
     }
 
     public enum PitWindowState
@@ -406,13 +535,15 @@ namespace LMUOverlay.Models
     public class InputData
     {
         public double Throttle { get; set; }
-        public double Brake { get; set; }
+        public double Brake    { get; set; }
         public double Steering { get; set; }
-        public double Clutch { get; set; }
-        public int Gear { get; set; }
-        public double RPM { get; set; }
-        public double MaxRPM { get; set; }
-        public double Speed { get; set; }
+        public double Clutch   { get; set; }
+        public int    Gear     { get; set; }
+        public double RPM      { get; set; }
+        public double MaxRPM   { get; set; }
+        public double Speed    { get; set; }
+        /// <summary>Position normalisée sur le tour (0-1), pour l'alignement avec le ghost.</summary>
+        public double TrackPos { get; set; }
     }
 
     // ========================================================================
@@ -559,26 +690,17 @@ namespace LMUOverlay.Models
         public int ValidEnergySamples { get; set; }
     }
 
-    public class TrackLimitsData
-    {
-        public int PenaltyCount { get; set; }
-        public int TrackLimitWarnings { get; set; }
-        public bool[] WheelOffTrack { get; set; } = new bool[4];
-        public string[] WheelSurface { get; set; } = new string[4];
-        public int OffTrackCount { get; set; }
-        public double LastOffTrackTime { get; set; }
-        public string LastLSIMessage { get; set; } = "";
-        public string StatusMessage { get; set; } = "";
-        public bool IsOffTrackNow { get; set; }
-        public List<TrackLimitEvent> RecentEvents { get; set; } = new();
-    }
+    // ========================================================================
+    // TRACK MAP DATA
+    // ========================================================================
 
-    public class TrackLimitEvent
+    public class TrackMapData
     {
-        public int LapNumber { get; set; }
-        public double ElapsedTime { get; set; }
-        public string Type { get; set; } = "";
-        public string Detail { get; set; } = "";
+        public string                    TrackName    { get; set; } = "";
+        public List<(float X, float Z)>  TrackPoints  { get; set; } = new();
+        public List<VehicleData>         Vehicles     { get; set; } = new();
+        public bool                      TrackRecorded { get; set; }  // tracé complet sauvegardé
+        public int                       PointCount   { get; set; }   // nb points enregistrés
     }
 
     // ========================================================================
@@ -681,17 +803,24 @@ namespace LMUOverlay.Models
         // Trail overlap alert (throttle + brake at same time)
         public bool TrailBrakeAlert { get; set; } = true;
 
+        /// <summary>
+        /// Affiche en temps réel les inputs du meilleur tour all-time :
+        /// marqueur doré sur chaque barre + trace ghost sur le graphique.
+        /// </summary>
+        public bool ShowGhostInputs { get; set; } = false;
+
         public static readonly (string Key, string Label)[] AllItems =
         {
-            ("ShowThrottle", "Accélérateur"),
-            ("ShowBrake", "Frein"),
-            ("ShowClutch", "Embrayage"),
-            ("ShowSteering", "Volant"),
-            ("ShowGear", "Rapport"),
-            ("ShowSpeed", "Vitesse"),
-            ("ShowRPM", "RPM"),
-            ("ShowGraph", "Graphique traces"),
+            ("ShowThrottle",    "Accélérateur"),
+            ("ShowBrake",       "Frein"),
+            ("ShowClutch",      "Embrayage"),
+            ("ShowSteering",    "Volant"),
+            ("ShowGear",        "Rapport"),
+            ("ShowSpeed",       "Vitesse"),
+            ("ShowRPM",         "RPM"),
+            ("ShowGraph",       "Graphique traces"),
             ("ShowSteeringBar", "Barre direction"),
+            ("ShowGhostInputs", "Ghost meilleur tour"),
         };
 
         public bool IsVisible(string key)
@@ -764,5 +893,16 @@ namespace LMUOverlay.Models
     {
         public int AheadCount { get; set; } = 5;
         public int BehindCount { get; set; } = 5;
+    }
+
+    // ========================================================================
+    // CHRONO — best lap time matrix settings
+    // ========================================================================
+
+    public class ChronoSettings
+    {
+        /// <summary>Path to the Results folder containing the XML files directly.</summary>
+        public string GameFolder  { get; set; } = @"C:\Program Files (x86)\Steam\steamapps\common\Le Mans Ultimate\UserData\Log\Results";
+        public string PlayerName  { get; set; } = "";
     }
 }

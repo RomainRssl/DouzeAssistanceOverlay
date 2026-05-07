@@ -16,6 +16,9 @@ namespace rF2SharedMemory
         private MemoryMappedViewStream? _stream;
         private readonly int _structSize;
         private byte[]? _buffer;
+        private readonly byte[] _versionBytes = new byte[8];
+        private uint _lastVersion = uint.MaxValue; // force first full read
+        private T _cached = default;
 
         public bool IsConnected { get; private set; }
 
@@ -48,6 +51,8 @@ namespace rF2SharedMemory
             _stream?.Dispose(); _stream = null;
             _mmf?.Dispose(); _mmf = null;
             _buffer = null;
+            _lastVersion = uint.MaxValue;
+            _cached = default;
         }
 
         public T Read()
@@ -57,30 +62,41 @@ namespace rF2SharedMemory
 
             try
             {
-                // Spinlock : re-read until mVersionUpdateBegin == mVersionUpdateEnd
-                // (both are uint at offsets 0 and 4 in every rF2 buffer struct)
+                // Fast path: peek only 8 version bytes to check if data changed
+                _stream.Position = 0;
+                if (_stream.Read(_versionBytes, 0, 8) < 8) return _cached;
+                uint vBegin = BitConverter.ToUInt32(_versionBytes, 0);
+                uint vEnd   = BitConverter.ToUInt32(_versionBytes, 4);
+
+                // If version unchanged and stable (even = no write in progress), return cache
+                if (vBegin == _lastVersion && vBegin == vEnd && (vBegin & 1) == 0)
+                    return _cached;
+
+                // Data changed — full read with spinlock
                 const int maxRetries = 3;
                 for (int attempt = 0; attempt < maxRetries; attempt++)
                 {
                     _stream.Position = 0;
                     int bytesRead = _stream.Read(_buffer, 0, _structSize);
-                    if (bytesRead < _structSize) return default;
+                    if (bytesRead < _structSize) return _cached;
 
-                    uint vBegin = BitConverter.ToUInt32(_buffer, 0);
-                    uint vEnd   = BitConverter.ToUInt32(_buffer, 4);
+                    vBegin = BitConverter.ToUInt32(_buffer, 0);
+                    vEnd   = BitConverter.ToUInt32(_buffer, 4);
                     if (vBegin != vEnd) continue; // game was writing, retry
 
                     GCHandle handle = GCHandle.Alloc(_buffer, GCHandleType.Pinned);
                     try
                     {
-                        return (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T))!;
+                        _cached = (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T))!;
+                        _lastVersion = vBegin;
+                        return _cached;
                     }
                     finally
                     {
                         handle.Free();
                     }
                 }
-                return default; // still mid-write after retries → skip this frame
+                return _cached; // still mid-write after retries → return last known good
             }
             catch
             {

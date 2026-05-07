@@ -225,14 +225,22 @@ namespace LMUOverlay.VR
 
             if (pixelW < 1 || pixelH < 1) return;
 
-            // Render WPF visual to bitmap
-            var rtb = new RenderTargetBitmap(pixelW, pixelH, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
-            rtb.Render(content);
+            // Réutiliser le RenderTargetBitmap et le buffer pixel si la taille n'a pas changé
+            if (inst.CachedRtb == null || inst.LastPixelW != pixelW || inst.LastPixelH != pixelH)
+            {
+                inst.CachedRtb    = new RenderTargetBitmap(pixelW, pixelH, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+                inst.CachedPixels = new byte[pixelH * pixelW * 4];
+                inst.LastPixelW   = pixelW;
+                inst.LastPixelH   = pixelH;
+            }
 
-            // Convert to BGRA byte array
+            // Render WPF visual to bitmap (reused RTB)
+            inst.CachedRtb.Render(content);
+
+            // Copy pixels into reused buffer
             int stride = pixelW * 4;
-            byte[] pixels = new byte[pixelH * stride];
-            rtb.CopyPixels(pixels, stride, 0);
+            inst.CachedRtb.CopyPixels(inst.CachedPixels!, stride, 0);
+            byte[] pixels = inst.CachedPixels!;
 
             // Convert BGRA → RGBA (OpenVR expects RGBA)
             for (int i = 0; i < pixels.Length; i += 4)
@@ -281,6 +289,12 @@ namespace LMUOverlay.VR
             public OverlaySettings Settings { get; set; } = null!;
             public (float x, float y, float z) Position { get; set; }
             public float WidthMeters { get; set; }
+
+            // Cache pour CaptureAndSubmit : évite de recréer RTB + byte[] à chaque frame
+            public RenderTargetBitmap? CachedRtb    { get; set; }
+            public byte[]?             CachedPixels { get; set; }
+            public int                 LastPixelW   { get; set; }
+            public int                 LastPixelH   { get; set; }
         }
     }
 }

@@ -19,6 +19,7 @@ namespace LMUOverlay.Views
         private bool _isLocked;
 
         private readonly List<(string Key, string Name, OverlaySettings Settings)> _allOverlays;
+        private HotkeyService? _hotkeyService;
 
         public MainWindow()
         {
@@ -56,14 +57,22 @@ namespace LMUOverlay.Views
                 ("LapGraph",            "LAPTIMEGRAPH", _config.LapGraph),
                 ("GForce",              "GFORCE",       _config.GForce),
                 ("Dashboard",           "DASHBOARD",    _config.Dashboard),
-                ("TrackLimits",         "TRACKLIMITS",  _config.TrackLimits),
                 ("BlindSpot",           "ANGLES MORTS", _config.BlindSpot),
                 ("Rejoin",              "RETOUR PISTE", _config.Rejoin),
+                ("Note",               "NOTE",          _config.Note),
+                ("Compteur",           "COMPTEUR",      _config.Compteur),
+                ("Clock",              "HORLOGE",       _config.Clock),
             };
 
             BuildSidebar();
             UpdateConnectionUI(false);
             _overlayManager.Initialize();
+            VoicePanel.Initialize(_config.General, _overlayManager.VoiceService,
+                                  _configService, _config);
+            ClassementPanel.Initialize(_config.General, new ClassementService());
+            _hotkeyService = new HotkeyService(_overlayManager);
+            _hotkeyService.Initialize(_allOverlays.Select(o => (o.Key, o.Settings)));
+            UpdateHideMenusButton();   // initialise le libellé ON/OFF depuis la config
 
             if (_allOverlays.Count > 0)
                 SelectOverlay(_allOverlays[0].Key);
@@ -93,11 +102,11 @@ namespace LMUOverlay.Views
         // SIDEBAR — Overlay list
         // ================================================================
 
-        // Flat toggle helper
-        private static readonly SolidColorBrush _btnActive   = new(Color.FromRgb(46, 90, 46));
-        private static readonly SolidColorBrush _btnInactive = new(Color.FromRgb(42, 42, 42));
-        private static readonly SolidColorBrush _fgActive    = new(Color.FromRgb(255, 255, 255));
-        private static readonly SolidColorBrush _fgInactive  = new(Color.FromRgb(200, 200, 200));
+        // Flat toggle helper — uses new accent green palette
+        private static readonly SolidColorBrush _btnActive   = new(Color.FromRgb(22, 101, 52));   // AccentGreenDark
+        private static readonly SolidColorBrush _btnInactive = new(Color.FromRgb(28, 28, 28));    // BgButton
+        private static readonly SolidColorBrush _fgActive    = new(Color.FromRgb(34, 197, 94));   // AccentGreen
+        private static readonly SolidColorBrush _fgInactive  = new(Color.FromRgb(163, 163, 163)); // TextSecondary
 
         private static void SetActive(Button btn, bool active)
         {
@@ -142,14 +151,14 @@ namespace LMUOverlay.Views
                     Text = name,
                     FontSize = 10, FontWeight = FontWeights.SemiBold,
                     FontFamily = new FontFamily("Segoe UI Semibold"),
-                    Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(210, 210, 210) : Color.FromRgb(100, 100, 100)),
+                    Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(220, 220, 220) : Color.FromRgb(82, 82, 82)),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Padding = new Thickness(4, 6, 4, 6)
+                    Padding = new Thickness(4, 8, 4, 8)
                 };
                 settings.PropertyChanged += (s, e) =>
                 {
                     if (e.PropertyName == nameof(OverlaySettings.IsEnabled))
-                        label.Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(210, 210, 210) : Color.FromRgb(100, 100, 100));
+                        label.Foreground = new SolidColorBrush(settings.IsEnabled ? Color.FromRgb(220, 220, 220) : Color.FromRgb(82, 82, 82));
                 };
                 label.MouseLeftButtonDown += (s, e) => SelectOverlay(capturedKey);
                 row.MouseLeftButtonDown   += (s, e) => SelectOverlay(capturedKey);
@@ -162,7 +171,7 @@ namespace LMUOverlay.Views
                 SidebarPanel.Children.Add(new Border
                 {
                     Height = 1,
-                    Background = new SolidColorBrush(Color.FromRgb(38, 38, 38)),
+                    Background = new SolidColorBrush(Color.FromRgb(22, 22, 22)),
                     Margin = new Thickness(0)
                 });
             }
@@ -186,24 +195,29 @@ namespace LMUOverlay.Views
                 int childIdx = i * 2;
                 if (childIdx < SidebarPanel.Children.Count && SidebarPanel.Children[childIdx] is Grid g)
                     g.Background = _allOverlays[i].Key == key
-                        ? new SolidColorBrush(Color.FromArgb(60, 46, 90, 46))
+                        ? new SolidColorBrush(Color.FromArgb(50, 34, 197, 94))
                         : Brushes.Transparent;
             }
 
             // Title
             Add(new TextBlock
             {
-                Text = entry.Name, FontSize = 18, FontWeight = FontWeights.Bold,
-                FontFamily = new FontFamily("Consolas"),
-                Foreground = B(230, 240, 240), Margin = new Thickness(0, 0, 0, 8)
+                Text = entry.Name, FontSize = 16, FontWeight = FontWeights.Bold,
+                FontFamily = new FontFamily("Segoe UI Semibold"),
+                Foreground = B(245, 245, 245), Margin = new Thickness(0, 0, 0, 2)
             });
+            Add(new Border { Height = 2, Background = new SolidColorBrush(Color.FromRgb(34, 197, 94)), Margin = new Thickness(0, 0, 0, 14), HorizontalAlignment = HorizontalAlignment.Left, Width = 32 });
 
             // Enabled
             AddToggle("Enabled", s.IsEnabled, v => { s.IsEnabled = v; _overlayManager.RefreshOverlayVisibility(); });
             AddSep();
 
             // Opacity
-            AddSlider("Opacité", s.Opacity, 0.1, 1.0, v => s.Opacity = v, "P0");
+            AddSlider("Opacité globale", s.Opacity, 0.1, 1.0, v => s.Opacity = v, "P0");
+            AddSlider("Background", s.BackgroundOpacity, 0.0, 1.0, v => s.BackgroundOpacity = v, "P0");
+
+            // Scale
+            AddSlider("Taille", s.Scale, 0.5, 3.0, v => s.Scale = v, "F2");
             AddSep();
 
             // Position
@@ -221,6 +235,14 @@ namespace LMUOverlay.Views
 
             // Lock
             AddToggle("Lock Position", s.IsLocked, v => s.IsLocked = v);
+            AddSep();
+
+            // Hotkey
+            AddHotkeyCapture(s, () =>
+            {
+                _hotkeyService?.RefreshBindings(_allOverlays.Select(o => (o.Key, o.Settings)));
+                _configService.Save(_config);
+            });
 
             // ---- Overlay-specific config toggles ----
             if (key == "StandingsRelative")
@@ -240,6 +262,42 @@ namespace LMUOverlay.Views
                     v => _config.StandingsColumns.OtherClassCount = (int)v, "F0");
                 AddToggle("Session info", _config.StandingsColumns.ShowSessionInfo,
                     v => _config.StandingsColumns.ShowSessionInfo = v);
+                AddSep();
+                AddToggles("STRUCTURE", new (string, string)[]
+                {
+                    ("Driver",    "Pilote"),
+                    ("CarNumber", "Numéro de course"),
+                    ("CarName",   "Nom voiture"),
+                    ("ClassBar",  "Barre de classe"),
+                    ("PitStops",  "Arrêts pit"),
+                    ("Indicator", "Indicateur pit/flag"),
+                }, _config.StandingsColumns);
+                AddSep();
+                AddToggles("ÉCARTS & TEMPS", new (string, string)[]
+                {
+                    ("GapToNext",   "Écart devant"),
+                    ("GapToLeader", "Écart leader"),
+                    ("Delta",       "Delta (dernier - meilleur)"),
+                    ("BestLap",     "Meilleur tour"),
+                    ("LastLap",     "Dernier tour"),
+                }, _config.StandingsColumns);
+                AddSep();
+                AddToggles("COURSE & RELAIS", new (string, string)[]
+                {
+                    ("TotalLaps",   "Tours totaux"),
+                    ("LapProgress", "Progression %"),
+                    ("StintLaps",   "Tours de relais"),
+                    ("StintTime",   "Temps de relais"),
+                }, _config.StandingsColumns);
+                AddSep();
+                AddToggles("TECHNIQUE", new (string, string)[]
+                {
+                    ("TireCompound", "Pneus"),
+                    ("SectorStatus", "Secteurs (indicateurs)"),
+                    ("Damage",       "Dégâts %"),
+                    ("Speed",        "Vitesse"),
+                    ("Penalties",    "Pénalités"),
+                }, _config.StandingsColumns);
             }
             if (key == "BlindSpot")
             {
@@ -260,6 +318,59 @@ namespace LMUOverlay.Views
                     double sc = _config.BlindSpot.CustomOptions.TryGetValue("Scale", out var s2) ? Convert.ToDouble(s2) : 1.0;
                     _overlayManager.GetOverlay<BlindSpotOverlay>("BlindSpot")?.UpdatePanelLayout(sc, v);
                 }, "F0");
+            }
+            if (key == "TrackMap")
+            {
+                AddSep();
+
+                double curOutline = _config.TrackMap.CustomOptions.TryGetValue("OutlineThickness", out var otv) ? Convert.ToDouble(otv) : 20.0;
+                double curCenter  = _config.TrackMap.CustomOptions.TryGetValue("CenterThickness",  out var ctv) ? Convert.ToDouble(ctv) : 10.0;
+                string curOutlineColor = _config.TrackMap.CustomOptions.TryGetValue("OutlineColor", out var ocv) ? ocv?.ToString() ?? "#000000" : "#000000";
+                string curCenterColor  = _config.TrackMap.CustomOptions.TryGetValue("CenterColor",  out var ccv) ? ccv?.ToString() ?? "#FFFFFF" : "#FFFFFF";
+
+                TrackMapUpdateColors();
+
+                AddSlider("Épaisseur contour", curOutline, 4, 40, v =>
+                {
+                    _config.TrackMap.CustomOptions["OutlineThickness"] = v;
+                    double c = _config.TrackMap.CustomOptions.TryGetValue("CenterThickness", out var c2) ? Convert.ToDouble(c2) : 10.0;
+                    _overlayManager.GetOverlay<TrackMapOverlay>("TrackMap")?.UpdateThickness(v, c);
+                }, "F0");
+
+                AddSlider("Épaisseur centre", curCenter, 2, 36, v =>
+                {
+                    _config.TrackMap.CustomOptions["CenterThickness"] = v;
+                    double o = _config.TrackMap.CustomOptions.TryGetValue("OutlineThickness", out var o2) ? Convert.ToDouble(o2) : 20.0;
+                    _overlayManager.GetOverlay<TrackMapOverlay>("TrackMap")?.UpdateThickness(o, v);
+                }, "F0");
+
+                AddSep();
+
+                AddColorPicker("Couleur contour", curOutlineColor, v =>
+                {
+                    _config.TrackMap.CustomOptions["OutlineColor"] = v;
+                    TrackMapUpdateColors();
+                });
+                AddColorPicker("Couleur centre", curCenterColor, v =>
+                {
+                    _config.TrackMap.CustomOptions["CenterColor"] = v;
+                    TrackMapUpdateColors();
+                });
+
+                void TrackMapUpdateColors()
+                {
+                    var overlay = _overlayManager.GetOverlay<TrackMapOverlay>("TrackMap");
+                    if (overlay == null) return;
+                    string oc = _config.TrackMap.CustomOptions.TryGetValue("OutlineColor", out var o2) ? o2?.ToString() ?? "#000000" : "#000000";
+                    string cc = _config.TrackMap.CustomOptions.TryGetValue("CenterColor",  out var c2) ? c2?.ToString() ?? "#FFFFFF" : "#FFFFFF";
+                    try
+                    {
+                        var outlineC = (Color)ColorConverter.ConvertFromString(oc)!;
+                        var centerC  = (Color)ColorConverter.ConvertFromString(cc)!;
+                        overlay.UpdateColors(outlineC, centerC);
+                    }
+                    catch { }
+                }
             }
             if (key == "Dashboard")
             {
@@ -291,6 +402,23 @@ namespace LMUOverlay.Views
                 AddColorPicker("Couleur Direction", _config.InputConfig.SteeringColor,
                     v => _config.InputConfig.SteeringColor = v);
             }
+            if (key == "ProximityRadar")
+            {
+                AddSep();
+
+                bool curColorClass = _config.ProximityRadar.CustomOptions.TryGetValue("ColorByClass",  out var cbv) && Convert.ToBoolean(cbv);
+                bool curShowPos    = !_config.ProximityRadar.CustomOptions.TryGetValue("ShowPosition", out var spv) || Convert.ToBoolean(spv);
+
+                AddToggle("Couleur par classe", curColorClass, v =>
+                {
+                    _config.ProximityRadar.CustomOptions["ColorByClass"] = v;
+                });
+
+                AddToggle("Afficher position", curShowPos, v =>
+                {
+                    _config.ProximityRadar.CustomOptions["ShowPosition"] = v;
+                });
+            }
         }
 
         // ================================================================
@@ -298,18 +426,18 @@ namespace LMUOverlay.Views
         // ================================================================
 
         private void Add(UIElement el) => SettingsPanel.Children.Add(el);
-        private void AddSep() => Add(new Border { Height = 1, Background = B(36, 68, 68), Margin = new Thickness(0, 6, 0, 6) });
+        private void AddSep() => Add(new Border { Height = 1, Background = B(30, 30, 30), Margin = new Thickness(0, 8, 0, 8) });
 
         private void AddSlider(string label, double val, double min, double max, Action<double> set, string fmt)
         {
-            var r = new Grid { Margin = new Thickness(0, 2, 0, 2) };
-            r.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+            var r = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+            r.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
             r.ColumnDefinitions.Add(new ColumnDefinition());
             r.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
 
-            r.Children.Add(new TextBlock { Text = label, FontSize = 11, FontFamily = new FontFamily("Consolas"), Foreground = B(150, 180, 180), VerticalAlignment = VerticalAlignment.Center });
+            r.Children.Add(new TextBlock { Text = label, FontSize = 11, FontFamily = new FontFamily("Segoe UI"), Foreground = B(163, 163, 163), VerticalAlignment = VerticalAlignment.Center });
 
-            var vt = new TextBlock { Text = fmt == "P0" ? $"{val * 100:F0}%" : val.ToString(fmt), FontSize = 11, FontFamily = new FontFamily("Consolas"), Foreground = B(76, 217, 100), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+            var vt = new TextBlock { Text = fmt == "P0" ? $"{val * 100:F0}%" : val.ToString(fmt), FontSize = 11, FontFamily = new FontFamily("Consolas"), Foreground = B(34, 197, 94), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(vt, 2); r.Children.Add(vt);
 
             var sl = new Slider { Minimum = min, Maximum = max, Value = val, Style = (Style)FindResource("ModernSlider"), VerticalAlignment = VerticalAlignment.Center };
@@ -320,10 +448,10 @@ namespace LMUOverlay.Views
 
         private void AddToggle(string label, bool val, Action<bool> set)
         {
-            var r = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+            var r = new Grid { Margin = new Thickness(0, 4, 0, 4) };
             r.ColumnDefinitions.Add(new ColumnDefinition());
             r.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            r.Children.Add(new TextBlock { Text = label, FontSize = 11, FontFamily = new FontFamily("Consolas"), Foreground = B(150, 180, 180), VerticalAlignment = VerticalAlignment.Center });
+            r.Children.Add(new TextBlock { Text = label, FontSize = 11, FontFamily = new FontFamily("Segoe UI"), Foreground = B(163, 163, 163), VerticalAlignment = VerticalAlignment.Center });
             var t = new CheckBox { IsChecked = val, Style = (Style)FindResource("ToggleSwitchStyle") };
             t.Checked += (s, e) => set(true); t.Unchecked += (s, e) => set(false);
             Grid.SetColumn(t, 1); r.Children.Add(t);
@@ -383,18 +511,120 @@ namespace LMUOverlay.Views
             Add(r);
         }
 
+        /// <summary>
+        /// Adds a hotkey capture row in the overlay settings panel.
+        /// Shows the current binding (or "Non assigné") + CAPTURER + ✕ buttons.
+        /// </summary>
+        private void AddHotkeyCapture(OverlaySettings settings, Action onChanged)
+        {
+            var row = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+            row.ColumnDefinitions.Add(new ColumnDefinition());                         // label
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // binding display
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // clear btn
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // capture btn
+
+            row.Children.Add(new TextBlock
+            {
+                Text = "Raccourci cacher/afficher", FontSize = 11,
+                FontFamily = new FontFamily("Segoe UI"),
+                Foreground = B(163, 163, 163),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            // Current binding label
+            var bindingLabel = new TextBlock
+            {
+                Text              = settings.Hotkey.IsEmpty ? "Non assigné" : settings.Hotkey.Display,
+                FontSize          = 10,
+                FontFamily        = new FontFamily("Consolas"),
+                Foreground        = settings.Hotkey.IsEmpty ? B(82, 82, 82) : B(34, 197, 94),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin            = new Thickness(0, 0, 6, 0),
+            };
+            Grid.SetColumn(bindingLabel, 1);
+            row.Children.Add(bindingLabel);
+
+            // Clear (✕) button
+            var clearBtn = new Button
+            {
+                Content         = "✕",
+                FontSize        = 9,
+                Padding         = new Thickness(5, 3, 5, 3),
+                Margin          = new Thickness(0, 0, 4, 0),
+                Visibility      = settings.Hotkey.IsEmpty ? Visibility.Collapsed : Visibility.Visible,
+                Style           = (Style)FindResource("FlatToggle"),
+                Foreground      = B(180, 60, 60),
+            };
+            Grid.SetColumn(clearBtn, 2);
+            row.Children.Add(clearBtn);
+
+            // Capture button
+            var captureBtn = new Button
+            {
+                Content  = "CAPTURER",
+                FontSize = 9,
+                Padding  = new Thickness(10, 3, 10, 3),
+                Style    = (Style)FindResource("FlatToggle"),
+            };
+            Grid.SetColumn(captureBtn, 3);
+            row.Children.Add(captureBtn);
+
+            // ── Capture flow ──
+            captureBtn.Click += (_, _) =>
+            {
+                captureBtn.Content    = "En attente…";
+                captureBtn.Foreground = B(34, 197, 94);
+                captureBtn.IsEnabled  = false;
+
+                _hotkeyService?.StartCapture(binding =>
+                {
+                    // UI update on dispatcher (callback already on UI thread via Dispatcher.Invoke in service)
+                    settings.Hotkey = binding;
+
+                    bindingLabel.Text       = binding.Display;
+                    bindingLabel.Foreground = B(34, 197, 94);
+                    clearBtn.Visibility     = Visibility.Visible;
+
+                    captureBtn.Content    = "CAPTURER";
+                    captureBtn.Foreground = B(163, 163, 163);
+                    captureBtn.IsEnabled  = true;
+
+                    onChanged();
+                });
+            };
+
+            // ── Clear flow ──
+            clearBtn.Click += (_, _) =>
+            {
+                _hotkeyService?.CancelCapture();
+                settings.Hotkey = new Models.HotkeyBinding();
+
+                bindingLabel.Text       = "Non assigné";
+                bindingLabel.Foreground = B(82, 82, 82);
+                clearBtn.Visibility     = Visibility.Collapsed;
+
+                captureBtn.Content    = "CAPTURER";
+                captureBtn.Foreground = B(163, 163, 163);
+                captureBtn.IsEnabled  = true;
+
+                onChanged();
+            };
+
+            Add(row);
+        }
+
         private void AddToggles(string title, (string Key, string Label)[] items, object cfg)
         {
-            Add(new TextBlock { Text = title, FontSize = 12, FontWeight = FontWeights.Bold, FontFamily = new FontFamily("Consolas"), Foreground = B(200, 220, 220), Margin = new Thickness(0, 0, 0, 4) });
+            Add(new TextBlock { Text = title, FontSize = 10, FontWeight = FontWeights.SemiBold, FontFamily = new FontFamily("Segoe UI Semibold"), Foreground = B(82, 82, 82), Margin = new Thickness(0, 4, 0, 6) });
             var ct = cfg.GetType();
             foreach (var (key, label) in items)
             {
                 var prop = ct.GetProperty(key);
                 bool on = prop != null && (bool)(prop.GetValue(cfg) ?? false);
-                var r = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+                var r = new Grid { Margin = new Thickness(0, 3, 0, 3) };
                 r.ColumnDefinitions.Add(new ColumnDefinition());
                 r.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                r.Children.Add(new TextBlock { Text = label, FontSize = 10, FontFamily = new FontFamily("Consolas"), Foreground = B(130, 160, 160), VerticalAlignment = VerticalAlignment.Center });
+                r.Children.Add(new TextBlock { Text = label, FontSize = 11, FontFamily = new FontFamily("Segoe UI"), Foreground = B(163, 163, 163), VerticalAlignment = VerticalAlignment.Center });
                 var t = new CheckBox { IsChecked = on, Style = (Style)FindResource("ToggleSwitchStyle") };
                 string ck = key;
                 t.Checked += (s, e) => ct.GetProperty(ck)?.SetValue(cfg, true);
@@ -482,10 +712,10 @@ namespace LMUOverlay.Views
             var b = new Button
             {
                 Content = symbol, FontSize = 14, FontFamily = new FontFamily("Consolas"),
-                Width = 32, Height = 26,
-                Background = new SolidColorBrush(Color.FromRgb(24, 52, 55)),
-                Foreground = B(200, 220, 220),
-                BorderBrush = B(36, 68, 68), BorderThickness = new Thickness(1),
+                Width = 32, Height = 28,
+                Background = new SolidColorBrush(Color.FromRgb(28, 28, 28)),
+                Foreground = B(163, 163, 163),
+                BorderBrush = B(42, 42, 42), BorderThickness = new Thickness(1),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = System.Windows.Input.Cursors.Hand
@@ -499,19 +729,46 @@ namespace LMUOverlay.Views
             var r = new Grid { Margin = new Thickness(0, 4, 0, 4) };
             r.ColumnDefinitions.Add(new ColumnDefinition());
             r.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            r.Children.Add(new TextBlock { Text = "Screen", FontSize = 11, FontFamily = new FontFamily("Consolas"), Foreground = B(150, 180, 180), VerticalAlignment = VerticalAlignment.Center });
+            r.Children.Add(new TextBlock { Text = "Écran", FontSize = 11, FontFamily = new FontFamily("Segoe UI"), Foreground = B(163, 163, 163), VerticalAlignment = VerticalAlignment.Center });
+
             var screens = Helpers.ScreenInfo.GetAllScreens();
-            var combo = new ComboBox { Width = 130, Background = new SolidColorBrush(Color.FromRgb(24, 52, 55)), Foreground = B(200, 200, 200), BorderBrush = B(36, 68, 68) };
+
+            // DPI scale factor: Win32 rcWork returns physical pixels, WPF Left/Top uses DIPs.
+            // We must convert: WPF_DIP = physical_px / dpiScale
+            double dpiScale = 1.0;
+            var ps = PresentationSource.FromVisual(this);
+            if (ps?.CompositionTarget != null)
+                dpiScale = ps.CompositionTarget.TransformToDevice.M11;
+
+            var combo = new ComboBox { Width = 130, Background = new SolidColorBrush(Color.FromRgb(22, 22, 22)), Foreground = B(220, 220, 220), BorderBrush = B(42, 42, 42) };
             for (int i = 0; i < screens.Count; i++) combo.Items.Add(screens[i].ToString());
-            combo.SelectedIndex = 0;
+
+            // Restore selection to the screen the overlay is currently on (compare in WPF DIPs)
+            int currentScreenIdx = 0;
+            for (int i = 0; i < screens.Count; i++)
+            {
+                double screenLeftDip  = screens[i].Left  / dpiScale;
+                double screenRightDip = screenLeftDip + screens[i].Width / dpiScale;
+                if (settings.PosX >= screenLeftDip && settings.PosX < screenRightDip)
+                {
+                    currentScreenIdx = i;
+                    break;
+                }
+            }
+
+            // Set index BEFORE attaching the handler to avoid a spurious position reset
+            combo.SelectedIndex = currentScreenIdx;
+
             combo.SelectionChanged += (s, e) =>
             {
                 if (combo.SelectedIndex >= 0 && combo.SelectedIndex < screens.Count)
                 {
-                    settings.PosX = screens[combo.SelectedIndex].Left + 100;
-                    settings.PosY = screens[combo.SelectedIndex].Top + 100;
+                    // Convert physical-pixel screen origin to WPF DIPs before writing to settings
+                    settings.PosX = screens[combo.SelectedIndex].Left  / dpiScale + 100;
+                    settings.PosY = screens[combo.SelectedIndex].Top   / dpiScale + 100;
                 }
             };
+
             Grid.SetColumn(combo, 1); r.Children.Add(combo);
             return r;
         }
@@ -530,11 +787,21 @@ namespace LMUOverlay.Views
 
         private void UpdateConnectionUI(bool c)
         {
-            StatusDot.Fill = c ? B(76, 217, 100) : B(255, 59, 48);
-            StatusText.Text = c ? "Connected" : "Disconnected";
-            StatusText.Foreground = c ? B(76, 217, 100) : B(255, 59, 48);
-            BtnConnect.Content = c ? "DISCONNECT" : "CONNECT";
-            ShmDot.Fill = c ? B(76, 217, 100) : B(255, 59, 48);
+            StatusDot.Fill    = c ? B(34, 197, 94) : B(239, 68, 68);
+            StatusText.Text   = c ? "Connecté" : "Déconnecté";
+            StatusText.Foreground = c ? B(34, 197, 94) : B(163, 163, 163);
+            BtnConnect.Content = c ? "DÉCONNECTER" : "CONNECTER";
+            ShmDot.Fill       = c ? B(34, 197, 94) : B(239, 68, 68);
+
+            // FORCER AFFICHAGE : uniquement disponible quand déconnecté
+            BtnForceDisplay.IsEnabled = !c;
+            if (c)
+            {
+                // Réinitialiser l'état visuel à OFF lors de la connexion
+                BtnForceDisplay.Content = "FORCER : OFF";
+                SetActive(BtnForceDisplay, false);
+            }
+
             UpdateFooter();
         }
 
@@ -550,43 +817,40 @@ namespace LMUOverlay.Views
 
         private void OnShowAll(object s, RoutedEventArgs e)
         {
-            if (_config.General.HideInMenus && !_overlayManager.IsOnTrack())
-            {
-                var result = MessageBox.Show(
-                    "Le mode \"Masquer dans les menus\" est activé.\n" +
-                    "Les overlays sont actuellement masqués car vous n'êtes pas en piste.\n\n" +
-                    "Voulez-vous forcer l'affichage ?",
-                    "Douze Assistance",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    _config.General.HideInMenus = false;
-                    BtnHideMenus.Content = "📺 MASQUER MENUS: OFF";
-                    _overlayManager.ShowAll();
-                }
-            }
-            else
-            {
-                _overlayManager.ShowAll();
-            }
+            // Coche toutes les cases — l'affichage réel respecte HideInMenus / connexion
+            _overlayManager.ShowAll();
             UpdateFooter();
         }
+
         private void OnHideAll(object s, RoutedEventArgs e) { _overlayManager.HideAll(); UpdateFooter(); }
 
         private void OnToggleLock(object s, RoutedEventArgs e)
         {
             _isLocked = !_isLocked;
             _overlayManager.SetAllLocked(_isLocked);
-            BtnLock.Content = _isLocked ? "UNLOCK HUD" : "LOCK HUD";
+            BtnLock.Content = _isLocked ? "🔓 UNLOCK" : "🔒 LOCK";
             SetActive(BtnLock, _isLocked);
         }
 
         private void OnToggleHideMenus(object s, RoutedEventArgs e)
         {
             _config.General.HideInMenus = !_config.General.HideInMenus;
-            SetActive(BtnHideMenus, _config.General.HideInMenus);
+            UpdateHideMenusButton();
+        }
+
+        private void UpdateHideMenusButton()
+        {
+            bool on = _config.General.HideInMenus;
+            BtnHideMenus.Content = on ? "MENUS: MASQUÉS" : "MASQUER MENUS";
+            SetActive(BtnHideMenus, on);
+        }
+
+        private void OnToggleForceDisplay(object s, RoutedEventArgs e)
+        {
+            bool newState = !_overlayManager.ForceDisplay;
+            _overlayManager.SetForceDisplay(newState);
+            BtnForceDisplay.Content = newState ? "FORCER: ON" : "FORCER : OFF";
+            SetActive(BtnForceDisplay, newState);
         }
 
         private void OnToggleVR(object s, RoutedEventArgs e)
@@ -609,6 +873,15 @@ namespace LMUOverlay.Views
             string track = _overlayManager.DataService.GetTrackName();
             if (!string.IsNullOrEmpty(track))
                 _profileService.SaveProfile(_config, ProfileService.TrackToProfileName(track));
+
+            // Toast confirmation
+            SaveStatus.Visibility = Visibility.Visible;
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(3)
+            };
+            timer.Tick += (_, _) => { SaveStatus.Visibility = Visibility.Collapsed; timer.Stop(); };
+            timer.Start();
         }
 
         private void OnExport(object s, RoutedEventArgs e)
@@ -623,33 +896,61 @@ namespace LMUOverlay.Views
         // SECTION TABS: HUD / TELEMETRY
         // ================================================================
 
-        private static readonly SolidColorBrush _tabActive   = new(Color.FromRgb(46, 90, 46));
-        private static readonly SolidColorBrush _tabInactive = new(Color.FromArgb(0, 0, 0, 0));
+        private static readonly SolidColorBrush _tabUnderlineActive   = new(Color.FromRgb(34, 197, 94));
+        private static readonly SolidColorBrush _tabUnderlineInactive = new(Color.FromArgb(0, 0, 0, 0));
+        private static readonly SolidColorBrush _tabFgActive          = new(Color.FromRgb(245, 245, 245));
+        private static readonly SolidColorBrush _tabFgInactive        = new(Color.FromRgb(82, 82, 82));
 
-        private void OnTabHud(object s, RoutedEventArgs e)
+        private void ShowTab(string tab)
         {
-            HudGrid.Visibility    = Visibility.Visible;
-            TelPanel.Visibility   = Visibility.Collapsed;
-            HudActions.Visibility = Visibility.Visible;
-            TabHud.Background       = _tabActive;
-            TabHud.Foreground       = Brushes.White;
-            TabTelemetry.Background = _tabInactive;
-            TabTelemetry.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102));
+            HudGrid.Visibility         = tab == "hud"         ? Visibility.Visible : Visibility.Collapsed;
+            TelPanel.Visibility        = tab == "telemetry"   ? Visibility.Visible : Visibility.Collapsed;
+            VoicePanel.Visibility      = tab == "audio"       ? Visibility.Visible : Visibility.Collapsed;
+            ChronoPanel.Visibility     = tab == "chrono"      ? Visibility.Visible : Visibility.Collapsed;
+            ClassementPanel.Visibility = tab == "leaderboard" ? Visibility.Visible : Visibility.Collapsed;
+            HudActions.Visibility      = tab == "hud"         ? Visibility.Visible : Visibility.Collapsed;
+
+            TabHud.BorderBrush          = tab == "hud"         ? _tabUnderlineActive : _tabUnderlineInactive;
+            TabHud.Foreground           = tab == "hud"         ? _tabFgActive        : _tabFgInactive;
+            TabTelemetry.BorderBrush    = tab == "telemetry"   ? _tabUnderlineActive : _tabUnderlineInactive;
+            TabTelemetry.Foreground     = tab == "telemetry"   ? _tabFgActive        : _tabFgInactive;
+            TabAudio.BorderBrush        = tab == "audio"       ? _tabUnderlineActive : _tabUnderlineInactive;
+            TabAudio.Foreground         = tab == "audio"       ? _tabFgActive        : _tabFgInactive;
+            TabChrono.BorderBrush       = tab == "chrono"      ? _tabUnderlineActive : _tabUnderlineInactive;
+            TabChrono.Foreground        = tab == "chrono"      ? _tabFgActive        : _tabFgInactive;
+            TabLeaderboard.BorderBrush  = tab == "leaderboard" ? _tabUnderlineActive : _tabUnderlineInactive;
+            TabLeaderboard.Foreground   = tab == "leaderboard" ? _tabFgActive        : _tabFgInactive;
         }
+
+        private void OnTabAudio(object s, RoutedEventArgs e) => ShowTab("audio");
+
+        private bool _chronoInitialized;
+        private void OnTabChrono(object s, RoutedEventArgs e)
+        {
+            ShowTab("chrono");
+            ChronoPanel.Initialize(_config.Chrono);
+            if (!_chronoInitialized)
+            {
+                _chronoInitialized = true;
+                ChronoPanel.SettingsChanged += () => _configService.Save(_config);
+            }
+        }
+
+        private void OnTabLeaderboard(object s, RoutedEventArgs e)
+        {
+            ShowTab("leaderboard");
+            _ = ClassementPanel.LoadAsync();
+        }
+
+        private void OnTabHud(object s, RoutedEventArgs e) => ShowTab("hud");
 
         private void OnTabTelemetry(object s, RoutedEventArgs e)
         {
-            HudGrid.Visibility    = Visibility.Collapsed;
-            TelPanel.Visibility   = Visibility.Visible;
-            HudActions.Visibility = Visibility.Collapsed;
-            TabTelemetry.Background = _tabActive;
-            TabTelemetry.Foreground = Brushes.White;
-            TabHud.Background       = _tabInactive;
-            TabHud.Foreground       = new SolidColorBrush(Color.FromRgb(102, 102, 102));
-
+            ShowTab("telemetry");
             string track = _overlayManager.DataService.GetTrackName();
             TelPanel.Refresh(_overlayManager.DataService, track);
         }
+
 
         // ================================================================
         // CLOSE
@@ -657,6 +958,7 @@ namespace LMUOverlay.Views
 
         protected override void OnClosed(EventArgs e)
         {
+            _hotkeyService?.Dispose();
             _configService.Save(_config);
             _overlayManager.Dispose();
             base.OnClosed(e);

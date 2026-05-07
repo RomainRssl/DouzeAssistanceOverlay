@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using LMUOverlay.Helpers;
 using LMUOverlay.Models;
 using LMUOverlay.Services;
 
@@ -21,8 +22,11 @@ namespace LMUOverlay.Views.Overlays
         private FrameworkElement? _originalContent;
         private Grid? _outerGrid;
         private Viewbox? _viewbox;
+        private Border? _bgBorder;          // background-only layer (sits behind content)
         private bool _wrapped;
         private bool _isCustomSize;
+        private double _naturalWidth, _naturalHeight;
+        private bool _suppressScaleResize; // évite la boucle Scale→resize→Scale
 
         // Resize
         private enum Edge { None, Right, Bottom, Corner }
@@ -99,9 +103,9 @@ namespace LMUOverlay.Views.Overlays
                 Visibility = unlocked ? Visibility.Visible : Visibility.Collapsed
             };
             _grip.MouseEnter += (_, _) =>
-                _grip.Fill = new SolidColorBrush(Color.FromArgb(220, 0, 210, 190));
+                _grip.Fill = BrushCache.Get(220, 0, 210, 190);
             _grip.MouseLeave += (_, _) =>
-                _grip.Fill = new SolidColorBrush(Color.FromArgb(100, 180, 210, 210));
+                _grip.Fill = BrushCache.Get(100, 180, 210, 210);
             _grip.MouseLeftButtonDown += (s, e) => StartResize(e, Edge.Corner);
             _grip.MouseMove += DoResize;
             _grip.MouseLeftButtonUp += StopResize;
@@ -127,7 +131,25 @@ namespace LMUOverlay.Views.Overlays
                 Content = null;
 
                 _outerGrid = new Grid();
-                // Content at index 0
+
+                // Extract background from root Border into a separate layer so that
+                // BackgroundOpacity can control the background independently of content.
+                _bgBorder = null;
+                if (fe is Border rb && rb.Background is { } bg)
+                {
+                    _bgBorder = new Border
+                    {
+                        Background          = bg,
+                        CornerRadius        = rb.CornerRadius,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        VerticalAlignment   = VerticalAlignment.Stretch,
+                        Opacity             = Settings.BackgroundOpacity
+                    };
+                    rb.Background = null;
+                    _outerGrid.Children.Add(_bgBorder);  // index 0: background layer
+                }
+
+                // Content (index 0 if no _bgBorder, otherwise index 1)
                 _outerGrid.Children.Add(fe);
                 // Resize handles on top (order matters for hit testing)
                 _outerGrid.Children.Add(_edgeRight);
@@ -137,17 +159,23 @@ namespace LMUOverlay.Views.Overlays
                 Content = _outerGrid;
                 SizeToContent = SizeToContent.WidthAndHeight;
 
-                // Restore saved size after first layout
-                if (Settings.OverlayWidth > 30 && Settings.OverlayHeight > 30)
-                    Loaded += OnFirstLoaded;
+                // Always capture natural size on first layout, then restore saved size / scale
+                Loaded += OnFirstLoaded;
             }
         }
 
         private void OnFirstLoaded(object sender, RoutedEventArgs e)
         {
             Loaded -= OnFirstLoaded;
-            if (!_resizeDisabled && Settings.OverlayWidth > 30 && Settings.OverlayHeight > 30)
+            _naturalWidth  = ActualWidth;
+            _naturalHeight = ActualHeight;
+
+            if (_resizeDisabled) return;
+
+            if (Settings.OverlayWidth > 30 && Settings.OverlayHeight > 30)
                 ActivateCustomSize(Settings.OverlayWidth, Settings.OverlayHeight);
+            else if (Math.Abs(Settings.Scale - 1.0) > 0.01)
+                ActivateCustomSize(_naturalWidth * Settings.Scale, _naturalHeight * Settings.Scale);
         }
 
         // ================================================================
@@ -167,7 +195,9 @@ namespace LMUOverlay.Views.Overlays
                     StretchDirection = StretchDirection.Both,
                     Child = _originalContent
                 };
-                _outerGrid.Children.Insert(0, _viewbox);
+                // Insert after _bgBorder (if present) so background stays behind content
+                int insertIdx = _bgBorder != null ? 1 : 0;
+                _outerGrid.Children.Insert(insertIdx, _viewbox);
             }
 
             SizeToContent = SizeToContent.Manual;
@@ -184,7 +214,9 @@ namespace LMUOverlay.Views.Overlays
             {
                 _viewbox.Child = null;
                 _outerGrid.Children.Remove(_viewbox);
-                _outerGrid.Children.Insert(0, _originalContent);
+                // Re-insert after _bgBorder (if present) so background stays behind content
+                int insertIdx = _bgBorder != null ? 1 : 0;
+                _outerGrid.Children.Insert(insertIdx, _originalContent);
                 _viewbox = null;
             }
 
@@ -211,6 +243,10 @@ namespace LMUOverlay.Views.Overlays
                 case nameof(OverlaySettings.Opacity):
                     Opacity = Settings.Opacity;
                     break;
+                case nameof(OverlaySettings.BackgroundOpacity):
+                    if (_bgBorder != null)
+                        _bgBorder.Opacity = Settings.BackgroundOpacity;
+                    break;
                 case nameof(OverlaySettings.IsEnabled):
                     if (Settings.IsEnabled) Show(); else Hide();
                     break;
@@ -225,6 +261,15 @@ namespace LMUOverlay.Views.Overlays
                     _grip.Visibility = vis;
                     _edgeRight.Visibility = vis;
                     _edgeBottom.Visibility = vis;
+                    break;
+                case nameof(OverlaySettings.Scale):
+                    if (!_suppressScaleResize && !_resizeDisabled && _naturalWidth > 0)
+                    {
+                        double sc = Settings.Scale;
+                        ActivateCustomSize(_naturalWidth * sc, _naturalHeight * sc);
+                        Settings.OverlayWidth  = _naturalWidth  * sc;
+                        Settings.OverlayHeight = _naturalHeight * sc;
+                    }
                     break;
                 case nameof(OverlaySettings.OverlayWidth):
                 case nameof(OverlaySettings.OverlayHeight):
@@ -342,9 +387,15 @@ namespace LMUOverlay.Views.Overlays
             _isResizing = false;
             ((UIElement)e.Source).ReleaseMouseCapture();
 
-            // Save
-            if (!double.IsNaN(Width)) Settings.OverlayWidth = Width;
+            // Save dimensions and update Scale to keep the slider in sync
+            if (!double.IsNaN(Width))  Settings.OverlayWidth  = Width;
             if (!double.IsNaN(Height)) Settings.OverlayHeight = Height;
+            if (_naturalWidth > 0)
+            {
+                _suppressScaleResize = true;
+                Settings.Scale = Width / _naturalWidth;
+                _suppressScaleResize = false;
+            }
             e.Handled = true;
         }
 

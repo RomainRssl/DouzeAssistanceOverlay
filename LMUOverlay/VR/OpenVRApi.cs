@@ -131,46 +131,50 @@ namespace LMUOverlay.VR
         delegate EVROverlayError _SetOverlayRaw(IntPtr self, ulong handle,
             IntPtr buffer, uint width, uint height, uint bytesPerPixel);
 
-        // Vtable slot indices (from IVROverlay in openvr.h)
-        // These may vary between OpenVR versions — based on OpenVR 1.26.7 / 2.5.1
+        // Vtable slot indices — IVROverlay_027 (openvr_api.cs official Valve C# bindings)
+        // Source: https://github.com/ValveSoftware/openvr/blob/master/headers/openvr_api.cs
+        // IMPORTANT: slot 2 = CreateSubviewOverlay (added in newer SDK) shifts everything by 1
         private const int SLOT_FindOverlay = 0;
         private const int SLOT_CreateOverlay = 1;
-        private const int SLOT_DestroyOverlay = 2;
-        private const int SLOT_GetOverlayKey = 3;
-        private const int SLOT_GetOverlayName = 4;
-        private const int SLOT_SetOverlayName = 5;
-        private const int SLOT_GetOverlayImageData = 6;
-        private const int SLOT_GetOverlayErrorNameFromEnum = 7;
-        private const int SLOT_SetOverlayRenderingPid = 8;
-        private const int SLOT_GetOverlayRenderingPid = 9;
-        private const int SLOT_SetOverlayFlag = 10;
-        private const int SLOT_GetOverlayFlag = 11;
-        private const int SLOT_GetOverlayFlags = 12;
-        private const int SLOT_SetOverlayColor = 13;
-        private const int SLOT_GetOverlayColor = 14;
-        private const int SLOT_SetOverlayAlpha = 15;
-        private const int SLOT_GetOverlayAlpha = 16;
-        private const int SLOT_SetOverlayTexelAspect = 17;
-        private const int SLOT_GetOverlayTexelAspect = 18;
-        private const int SLOT_SetOverlaySortOrder = 19;
-        private const int SLOT_GetOverlaySortOrder = 20;
-        private const int SLOT_SetOverlayWidthInMeters = 21;
-        private const int SLOT_GetOverlayWidthInMeters = 22;
-        private const int SLOT_SetOverlayCurvature = 23;
-        private const int SLOT_GetOverlayCurvature = 24;
-        private const int SLOT_SetOverlayPreCurvePitch = 25;
-        private const int SLOT_GetOverlayPreCurvePitch = 26;
-        private const int SLOT_SetOverlayTextureColorSpace = 27;
-        private const int SLOT_GetOverlayTextureColorSpace = 28;
-        private const int SLOT_SetOverlayTextureBounds = 29;
-        private const int SLOT_GetOverlayTextureBounds = 30;
-        private const int SLOT_GetOverlayTransformType = 31;
-        private const int SLOT_SetOverlayTransformAbsolute = 32;
-        private const int SLOT_GetOverlayTransformAbsolute = 33;
-        private const int SLOT_SetOverlayTransformTrackedDeviceRelative = 34;
-        private const int SLOT_ShowOverlay = 42;
-        private const int SLOT_HideOverlay = 43;
-        private const int SLOT_SetOverlayRaw = 55;
+        // slot 2 = CreateSubviewOverlay (not used, but shifts all subsequent slots)
+        private const int SLOT_DestroyOverlay = 3;
+        private const int SLOT_GetOverlayKey = 4;
+        private const int SLOT_GetOverlayName = 5;
+        private const int SLOT_SetOverlayName = 6;
+        private const int SLOT_GetOverlayImageData = 7;
+        private const int SLOT_GetOverlayErrorNameFromEnum = 8;
+        private const int SLOT_SetOverlayRenderingPid = 9;
+        private const int SLOT_GetOverlayRenderingPid = 10;
+        private const int SLOT_SetOverlayFlag = 11;
+        private const int SLOT_GetOverlayFlag = 12;
+        private const int SLOT_GetOverlayFlags = 13;
+        private const int SLOT_SetOverlayColor = 14;
+        private const int SLOT_GetOverlayColor = 15;
+        private const int SLOT_SetOverlayAlpha = 16;
+        private const int SLOT_GetOverlayAlpha = 17;
+        private const int SLOT_SetOverlayTexelAspect = 18;
+        private const int SLOT_GetOverlayTexelAspect = 19;
+        private const int SLOT_SetOverlaySortOrder = 20;
+        private const int SLOT_GetOverlaySortOrder = 21;
+        private const int SLOT_SetOverlayWidthInMeters = 22;
+        private const int SLOT_GetOverlayWidthInMeters = 23;
+        private const int SLOT_SetOverlayCurvature = 24;
+        private const int SLOT_GetOverlayCurvature = 25;
+        private const int SLOT_SetOverlayPreCurvePitch = 26;
+        private const int SLOT_GetOverlayPreCurvePitch = 27;
+        private const int SLOT_SetOverlayTextureColorSpace = 28;
+        private const int SLOT_GetOverlayTextureColorSpace = 29;
+        private const int SLOT_SetOverlayTextureBounds = 30;
+        private const int SLOT_GetOverlayTextureBounds = 31;
+        private const int SLOT_GetOverlayTransformType = 32;
+        private const int SLOT_SetOverlayTransformAbsolute = 33;
+        private const int SLOT_GetOverlayTransformAbsolute = 34;
+        private const int SLOT_SetOverlayTransformTrackedDeviceRelative = 35;
+        // slots 36-42 = other transform + projection functions
+        private const int SLOT_ShowOverlay = 43;
+        private const int SLOT_HideOverlay = 44;
+        // slots 45-61 = input/event/cursor functions
+        private const int SLOT_SetOverlayRaw = 62;
 
         public VROverlayInterface(IntPtr interfacePtr)
         {

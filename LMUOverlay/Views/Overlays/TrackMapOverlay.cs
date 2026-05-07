@@ -1,438 +1,342 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using LMUOverlay.Helpers;
 using LMUOverlay.Models;
 using LMUOverlay.Services;
 
 namespace LMUOverlay.Views.Overlays
 {
     /// <summary>
-    /// Track map overlay with circuit image background.
-    /// Vehicle positions are auto-calibrated onto the image using min/max coordinates.
-    /// Falls back to drawing the track from vehicle positions if no image found.
-    /// 
-    /// Track images go in Resources/Tracks/ with filename matching the track name.
-    /// Example: "Le Mans 24h.png", "Spa-Francorchamps.png"
-    /// Supported: .png, .jpg
+    /// Track map overlay. The track layout is recorded while driving and persisted to disk.
+    /// Performance: vehicle dots are pooled (no per-frame allocation), transform values cached.
     /// </summary>
     public class TrackMapOverlay : BaseOverlayWindow
     {
-        // ================================================================
-        // TRACK NAME → IMAGE FILE ALIASES
-        // Maps LMU/rF2 mTrackName patterns to the image filename (without extension).
-        // Both exact match and substring match are attempted.
-        // ================================================================
-        private static readonly Dictionary<string, string> _trackAliases = new(StringComparer.OrdinalIgnoreCase)
-        {
-            // Portimão
-            { "Algarve International Circuit", "portimao" },
-            { "Portimao",                      "portimao" },
-            { "Portimão",                      "portimao" },
-            // Imola
-            { "Imola",                                  "imola" },
-            { "Autodromo Enzo e Dino Ferrari",           "imola" },
-            { "Autodromo Internazionale Enzo e Dino Ferrari", "imola" },
-            // Interlagos
-            { "Interlagos",                    "interlagos" },
-            { "Autodromo Jose Carlos Pace",    "interlagos" },
-            { "Autódromo José Carlos Pace",    "interlagos" },
-            // Bahrain (all layouts)
-            { "Bahrain International Circuit",          "bahrain" },
-            { "Bahrain International Endurance Circuit","bahrain" },
-            { "Bahrain International Outer Circuit",    "bahrain" },
-            { "Bahrain International Paddock Circuit",  "bahrain" },
-            { "Bahrain",                                "bahrain" },
-            // COTA
-            { "Circuit of the Americas",       "cota" },
-            { "COTA",                          "cota" },
-            { "COTA National",                 "cota" },
-            { "Austin",                        "cota" },
-            // Le Mans (all layouts)
-            { "Circuit de la Sarthe",                        "lemans" },
-            { "Circuit de la Sarthe Mulsanne No Chicanes",   "lemans" },
-            { "Le Mans",                                     "lemans" },
-            // Fuji (all layouts)
-            { "Fuji",                               "fuji" },
-            { "Fuji International Speedway",        "fuji" },
-            { "Fuji Speedway",                      "fuji" },
-            { "Fuji Classic Layout",                "fuji" },
-            { "Fuji Classic Layout (No Chicane)",   "fuji" },
-            // Lusail (all layouts)
-            { "Lusail International Circuit",       "lusail" },
-            { "Lusail International Circuit Short", "lusail" },
-            { "Lusail",                             "lusail" },
-            { "Losail",                             "lusail" },
-            // Monza (all layouts)
-            { "Monza",                         "monza" },
-            { "Autodromo Nazionale Monza",     "monza" },
-            { "Monza Curva Grande Layout",     "monza" },
-            // Sebring (all layouts)
-            { "Sebring",                       "sebring" },
-            { "Sebring International Raceway", "sebring" },
-            { "Sebring School Circuit",        "sebring" },
-            // Spa (all layouts)
-            { "Spa",                           "spa" },
-            { "Spa-Francorchamps",             "spa" },
-            { "Circuit de Spa",                "spa" },
-            { "Spa Endurance Layout",          "spa" },
-            // Paul Ricard
-            { "Paul Ricard",                   "paul_ricard" },
-            { "Circuit Paul Ricard",           "paul_ricard" },
-            // Silverstone
-            { "Silverstone",                   "silverstone" },
-        };
+        private readonly Canvas    _mapCanvas;
+        private readonly Canvas    _dotsCanvas;   // separate layer — cleared cheaply
+        private readonly Polyline  _trackOutline;
+        private readonly Polyline  _trackCenter;
+        private readonly TextBlock _statusLabel;
 
-        private static string ResolveTrackAlias(string trackName)
-        {
-            // 1. Exact match
-            if (_trackAliases.TryGetValue(trackName, out var alias)) return alias;
-            // 2. Substring match (sim may send "Spa-Francorchamps GP 2024" etc.)
-            foreach (var kv in _trackAliases)
-                if (trackName.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
-                    return kv.Value;
-            return trackName; // fallback: original name
-        }
-
-
-        private readonly Canvas _mapCanvas;
-        private readonly Image _trackImage;
         private const double MapW = 280, MapH = 280;
-        private const double Pad = 12;
+        private const double Pad  = 14;
 
-        // Bounds from vehicle positions (auto-calibrate)
-        private double _minX = double.MaxValue, _maxX = double.MinValue;
-        private double _minZ = double.MaxValue, _maxZ = double.MinValue;
-        private bool _boundsStable;
-        private int _boundsStableFrames;
+        // Cached transform (only recomputed on track rebuild)
+        private double _scaleX, _scaleZ, _drawOffX, _drawOffY;
+        private double _minX, _minZ;
+        private bool   _transformValid;
 
-        // Fallback: drawn track when no image
-        private readonly SortedDictionary<int, (double x, double z)> _trackPoints = new();
-        private Polyline? _drawnTrack;
-        private bool _hasImage;
+        // Track change detection
+        private int    _renderedPointCount;
+        private string _currentTrack = "";
 
-        // Current track
-        private string _loadedTrack = "";
+        // ── Pooled vehicle visuals (zero per-frame allocation) ──────────
+        private static readonly FontFamily _consolas    = new("Consolas");
+        private static readonly FontFamily _segoeUI     = new("Segoe UI");
 
-        // Vehicle visuals (recreated each frame)
-        private readonly List<UIElement> _dots = new();
+        // Player visuals (always 1)
+        private readonly Ellipse    _playerGlow;
+        private readonly Ellipse    _playerDot;
+        private readonly Border     _playerLabel;
+        private readonly TextBlock  _playerLabelText;
+
+        // Opponent dot pool (grows if needed, never shrinks to avoid thrashing)
+        private readonly List<Ellipse> _opponentPool = new();
 
         public TrackMapOverlay(DataService ds, OverlaySettings s) : base(ds, s)
         {
             var border = new Border { Padding = new Thickness(2) };
 
-            var grid = new Grid { Width = MapW, Height = MapH };
-
-            // Track image (behind everything)
-            _trackImage = new Image
+            // ── Dot layer (clear all at once each frame) ─────────────────
+            _dotsCanvas = new Canvas
             {
-                Stretch = Stretch.Uniform,
-                Opacity = 0.7,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
+                Width  = MapW,
+                Height = MapH,
+                IsHitTestVisible = false
             };
-            grid.Children.Add(_trackImage);
 
-            // Canvas for dots (on top of image)
             _mapCanvas = new Canvas
             {
-                Width = MapW, Height = MapH,
+                Width  = MapW,
+                Height = MapH,
                 ClipToBounds = true,
                 Background = Brushes.Transparent
             };
-            grid.Children.Add(_mapCanvas);
 
-            border.Child = grid;
-            Content = border;
+            // Read settings
+            double outlineT = s.CustomOptions.TryGetValue("OutlineThickness", out var ov) ? Convert.ToDouble(ov) : 20.0;
+            double centerT  = s.CustomOptions.TryGetValue("CenterThickness",  out var cv) ? Convert.ToDouble(cv) : 10.0;
+            var outlineColor = ParseColor(s.CustomOptions.TryGetValue("OutlineColor", out var ocv) ? ocv?.ToString() : null, Colors.Black);
+            var centerColor  = ParseColor(s.CustomOptions.TryGetValue("CenterColor",  out var ccv) ? ccv?.ToString() : null, Colors.White);
+
+            // ── Track polylines ──────────────────────────────────────────
+            _trackOutline = new Polyline
+            {
+                Stroke             = new SolidColorBrush(outlineColor),
+                StrokeThickness    = outlineT,
+                StrokeLineJoin     = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap   = PenLineCap.Round
+            };
+            _trackCenter = new Polyline
+            {
+                Stroke             = new SolidColorBrush(centerColor),
+                StrokeThickness    = centerT,
+                StrokeLineJoin     = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap   = PenLineCap.Round
+            };
+
+            // ── Status label ─────────────────────────────────────────────
+            _statusLabel = new TextBlock
+            {
+                Foreground  = new SolidColorBrush(Color.FromArgb(180, 255, 200, 80)),
+                FontSize    = 9,
+                FontFamily  = _consolas,
+                IsHitTestVisible = false
+            };
+            Canvas.SetLeft(_statusLabel, 4);
+            Canvas.SetTop(_statusLabel, MapH - 18);
+            Canvas.SetZIndex(_statusLabel, 100);
+
+            // ── Pooled player visuals ────────────────────────────────────
+            _playerGlow = new Ellipse
+            {
+                Width = 20, Height = 20,
+                Fill  = Brushes.Transparent,
+                StrokeThickness = 2,
+                Visibility = Visibility.Collapsed
+            };
+            _playerDot = new Ellipse
+            {
+                Width = 12, Height = 12,
+                Stroke = Brushes.White,
+                StrokeThickness = 1.5,
+                Visibility = Visibility.Collapsed
+            };
+            _playerLabelText = new TextBlock
+            {
+                FontSize   = 9,
+                FontWeight = FontWeights.Bold,
+                FontFamily = _consolas,
+                Foreground = Brushes.White
+            };
+            _playerLabel = new Border
+            {
+                Background   = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
+                CornerRadius = new CornerRadius(2),
+                Padding      = new Thickness(3, 0, 3, 0),
+                Child        = _playerLabelText,
+                Visibility   = Visibility.Collapsed
+            };
+            Canvas.SetZIndex(_playerLabel, 50);
+
+            // Add static elements to canvases
+            _mapCanvas.Children.Add(_trackOutline);
+            _mapCanvas.Children.Add(_trackCenter);
+            _mapCanvas.Children.Add(_dotsCanvas);
+            _mapCanvas.Children.Add(_statusLabel);
+
+            // Player visuals live on the dots canvas
+            _dotsCanvas.Children.Add(_playerGlow);
+            _dotsCanvas.Children.Add(_playerDot);
+            _dotsCanvas.Children.Add(_playerLabel);
+
+            border.Child = _mapCanvas;
+            Content      = border;
         }
+
+        // ================================================================
+        // UPDATE (hot path — zero allocation)
+        // ================================================================
 
         public override void UpdateData()
         {
-            var vehicles = DataService.GetAllVehicles();
-            if (vehicles.Count == 0) return;
+            var d = DataService.GetTrackMapData();
+            if (d.Vehicles.Count == 0) return;
 
-            // ================================================================
-            // 1. LOAD TRACK IMAGE (once per track)
-            // ================================================================
-            string trackName = DataService.GetTrackName();
-            if (!string.IsNullOrEmpty(trackName) && trackName != _loadedTrack)
+            // Rebuild track geometry only when something changed
+            if (d.PointCount != _renderedPointCount || d.TrackName != _currentTrack)
             {
-                _loadedTrack = trackName;
-                LoadTrackImage(trackName);
-                // Reset bounds for new track
-                _minX = double.MaxValue; _maxX = double.MinValue;
-                _minZ = double.MaxValue; _maxZ = double.MinValue;
-                _boundsStable = false;
-                _boundsStableFrames = 0;
-                _trackPoints.Clear();
+                RebuildTrackPolylines(d.TrackPoints);
+                _renderedPointCount = d.PointCount;
+                _currentTrack       = d.TrackName;
             }
 
-            // ================================================================
-            // 2. UPDATE BOUNDS from all vehicles
-            // ================================================================
-            bool boundsChanged = false;
-            foreach (var v in vehicles)
+            // Status label (only update text when recording in progress)
+            _statusLabel.Text = d.TrackRecorded ? "" : $"ENREG. {d.PointCount} pts";
+
+            if (!_transformValid) return;
+
+            // ── Reuse pooled opponent dots ────────────────────────────────
+            // Ensure pool is large enough
+            int opponentCount = 0;
+            foreach (var v in d.Vehicles) if (!v.IsPlayer) opponentCount++;
+
+            while (_opponentPool.Count < opponentCount)
             {
-                if (v.InPits && _boundsStableFrames < 30) continue; // skip pit positions early on
-                if (v.PosX < _minX) { _minX = v.PosX; boundsChanged = true; }
-                if (v.PosX > _maxX) { _maxX = v.PosX; boundsChanged = true; }
-                if (v.PosZ < _minZ) { _minZ = v.PosZ; boundsChanged = true; }
-                if (v.PosZ > _maxZ) { _maxZ = v.PosZ; boundsChanged = true; }
+                var e = new Ellipse { StrokeThickness = 0 };
+                Canvas.SetZIndex(e, 10);
+                _dotsCanvas.Children.Add(e);
+                _opponentPool.Add(e);
             }
 
-            if (!boundsChanged)
-                _boundsStableFrames++;
-            else
-                _boundsStableFrames = 0;
+            // Hide all opponent dots first, then reuse
+            for (int i = 0; i < _opponentPool.Count; i++)
+                _opponentPool[i].Visibility = Visibility.Collapsed;
 
-            _boundsStable = _boundsStableFrames > 60; // ~2 seconds of stability
+            int oIdx = 0;
+            bool playerFound = false;
 
-            // ================================================================
-            // 3. FALLBACK: Draw track from positions if no image
-            // ================================================================
-            if (!_hasImage)
-            {
-                foreach (var v in vehicles)
-                {
-                    if (v.InPits || v.LapDistance <= 0) continue;
-                    int bucket = (int)(v.LapDistance / 5.0);
-                    if (!_trackPoints.ContainsKey(bucket))
-                        _trackPoints[bucket] = (v.PosX, v.PosZ);
-                }
-                DrawFallbackTrack();
-            }
-
-            // ================================================================
-            // 4. DRAW VEHICLES
-            // ================================================================
-            foreach (var dot in _dots)
-                _mapCanvas.Children.Remove(dot);
-            _dots.Clear();
-
-            // Sort: player on top
-            var sorted = vehicles.OrderBy(v => v.IsPlayer ? 1 : 0).ToList();
-
-            foreach (var v in sorted)
+            foreach (var v in d.Vehicles)
             {
                 var (cx, cy) = WorldToCanvas(v.PosX, v.PosZ);
                 Color classColor = OverlayHelper.GetClassColor(v.VehicleClass);
 
                 if (v.IsPlayer)
-                    DrawPlayer(cx, cy, classColor, v.Position);
+                {
+                    PlacePlayer(cx, cy, classColor, v.Position);
+                    playerFound = true;
+                }
                 else
-                    DrawVehicle(cx, cy, classColor, v.InPits);
-            }
-        }
-
-        // ================================================================
-        // TRACK IMAGE LOADING
-        // ================================================================
-
-        private void LoadTrackImage(string trackName)
-        {
-            _hasImage = false;
-            _trackImage.Source = null;
-
-            // Resolve alias first (e.g. "Spa-Francorchamps GP 2024" → "spa")
-            string resolved = ResolveTrackAlias(trackName);
-
-            // Search for matching image in multiple locations
-            string[] searchPaths = GetImageSearchPaths(resolved);
-
-            foreach (var path in searchPaths)
-            {
-                if (File.Exists(path))
                 {
-                    try
-                    {
-                        var bmp = new BitmapImage();
-                        bmp.BeginInit();
-                        bmp.UriSource = new Uri(path, UriKind.Absolute);
-                        bmp.CacheOption = BitmapCacheOption.OnLoad;
-                        bmp.EndInit();
-                        _trackImage.Source = bmp;
-                        _hasImage = true;
-                        return;
-                    }
-                    catch { /* skip bad image */ }
+                    PlaceOpponent(_opponentPool[oIdx++], cx, cy, classColor, v.InPits);
                 }
             }
 
-            // Try embedded resource
-            try
+            if (!playerFound)
             {
-                string resName = SanitizeFileName(resolved);
-                var uri = new Uri($"pack://application:,,,/Resources/Tracks/{resName}.png", UriKind.Absolute);
-                var bmp = new BitmapImage(uri);
-                _trackImage.Source = bmp;
-                _hasImage = true;
+                _playerGlow.Visibility  = Visibility.Collapsed;
+                _playerDot.Visibility   = Visibility.Collapsed;
+                _playerLabel.Visibility = Visibility.Collapsed;
             }
-            catch { /* no embedded resource */ }
-        }
-
-        private static string[] GetImageSearchPaths(string trackName)
-        {
-            string sanitized = SanitizeFileName(trackName);
-            string appDir = AppDomain.CurrentDomain.BaseDirectory;
-            string tracksDir = System.IO.Path.Combine(appDir, "Tracks");
-
-            var paths = new List<string>();
-
-            // Exact match
-            foreach (string ext in new[] { ".png", ".jpg", ".jpeg" })
-            {
-                paths.Add(System.IO.Path.Combine(tracksDir, sanitized + ext));
-                paths.Add(System.IO.Path.Combine(tracksDir, trackName + ext));
-                paths.Add(System.IO.Path.Combine(appDir, "Resources", "Tracks", sanitized + ext));
-            }
-
-            // Fuzzy match: list files in Tracks folder
-            if (Directory.Exists(tracksDir))
-            {
-                foreach (var file in Directory.GetFiles(tracksDir, "*.png")
-                    .Concat(Directory.GetFiles(tracksDir, "*.jpg")))
-                {
-                    string fn = System.IO.Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
-                    if (trackName.ToLowerInvariant().Contains(fn) || fn.Contains(trackName.ToLowerInvariant()))
-                        paths.Add(file);
-                }
-            }
-
-            return paths.ToArray();
-        }
-
-        private static string SanitizeFileName(string name)
-        {
-            char[] invalid = System.IO.Path.GetInvalidFileNameChars();
-            return new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
         }
 
         // ================================================================
-        // FALLBACK: DRAW TRACK
+        // PUBLIC API — settings sliders / pickers
         // ================================================================
 
-        private void DrawFallbackTrack()
+        public void UpdateThickness(double outlineT, double centerT)
         {
-            if (_trackPoints.Count < 10) return;
+            _trackOutline.StrokeThickness = outlineT;
+            _trackCenter.StrokeThickness  = centerT;
+        }
 
-            if (_drawnTrack != null)
-                _mapCanvas.Children.Remove(_drawnTrack);
-
-            _drawnTrack = new Polyline
-            {
-                Stroke = new SolidColorBrush(Color.FromArgb(70, 200, 220, 220)),
-                StrokeThickness = 3,
-                StrokeLineJoin = PenLineJoin.Round
-            };
-
-            foreach (var kvp in _trackPoints)
-            {
-                var (cx, cy) = WorldToCanvas(kvp.Value.x, kvp.Value.z);
-                _drawnTrack.Points.Add(new Point(cx, cy));
-            }
-
-            if (_trackPoints.Count > 50)
-            {
-                var first = _trackPoints.First().Value;
-                var (fx, fy) = WorldToCanvas(first.x, first.z);
-                _drawnTrack.Points.Add(new Point(fx, fy));
-            }
-
-            _mapCanvas.Children.Insert(0, _drawnTrack);
+        public void UpdateColors(Color outlineColor, Color centerColor)
+        {
+            _trackOutline.Stroke = new SolidColorBrush(outlineColor);
+            _trackCenter.Stroke  = new SolidColorBrush(centerColor);
         }
 
         // ================================================================
-        // DRAW VEHICLES
+        // PLAYER / OPPONENT PLACEMENT (no allocation — reuse pooled objects)
         // ================================================================
 
-        private void DrawPlayer(double cx, double cy, Color classColor, int position)
+        private void PlacePlayer(double cx, double cy, Color classColor, int position)
         {
-            // Glow ring
-            var glow = new Ellipse
-            {
-                Width = 20, Height = 20,
-                Fill = Brushes.Transparent,
-                Stroke = new SolidColorBrush(Color.FromArgb(90, classColor.R, classColor.G, classColor.B)),
-                StrokeThickness = 2
-            };
-            SetPos(glow, cx, cy, 20);
-            _mapCanvas.Children.Add(glow);
-            _dots.Add(glow);
+            _playerGlow.Stroke     = BrushCache.Get(Color.FromArgb(90, classColor.R, classColor.G, classColor.B));
+            _playerGlow.Visibility = Visibility.Visible;
+            SetPos(_playerGlow, cx, cy, 20);
 
-            // Dot
-            var dot = new Ellipse
-            {
-                Width = 12, Height = 12,
-                Fill = new SolidColorBrush(classColor),
-                Stroke = Brushes.White,
-                StrokeThickness = 1.5
-            };
-            SetPos(dot, cx, cy, 12);
-            _mapCanvas.Children.Add(dot);
-            _dots.Add(dot);
+            _playerDot.Fill       = BrushCache.Get(classColor);
+            _playerDot.Visibility = Visibility.Visible;
+            SetPos(_playerDot, cx, cy, 12);
 
-            // Position label
-            var label = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0)),
-                CornerRadius = new CornerRadius(2),
-                Padding = new Thickness(3, 0, 3, 0)
-            };
-            label.Child = new TextBlock
-            {
-                Text = $"P{position}", FontSize = 9, FontWeight = FontWeights.Bold,
-                FontFamily = new FontFamily("Consolas"),
-                Foreground = Brushes.White
-            };
-            Canvas.SetLeft(label, cx + 9);
-            Canvas.SetTop(label, cy - 8);
-            _mapCanvas.Children.Add(label);
-            _dots.Add(label);
+            _playerLabelText.Text   = $"P{position}";
+            _playerLabel.Visibility = Visibility.Visible;
+            Canvas.SetLeft(_playerLabel, cx + 9);
+            Canvas.SetTop(_playerLabel,  cy - 8);
         }
 
-        private void DrawVehicle(double cx, double cy, Color classColor, bool inPits)
+        private static void PlaceOpponent(Ellipse dot, double cx, double cy, Color classColor, bool inPits)
         {
-            double size = inPits ? 4 : 7;
-            var dot = new Ellipse
-            {
-                Width = size, Height = size,
-                Fill = new SolidColorBrush(classColor),
-                Opacity = inPits ? 0.25 : 0.85
-            };
+            double size    = inPits ? 4 : 7;
+            dot.Width      = size;
+            dot.Height     = size;
+            dot.Fill       = BrushCache.Get(classColor);
+            dot.Opacity    = inPits ? 0.25 : 0.85;
+            dot.Visibility = Visibility.Visible;
             SetPos(dot, cx, cy, size);
-            _mapCanvas.Children.Add(dot);
-            _dots.Add(dot);
         }
 
         private static void SetPos(UIElement el, double cx, double cy, double size)
         {
-            Canvas.SetLeft(el, cx - size / 2);
-            Canvas.SetTop(el, cy - size / 2);
+            Canvas.SetLeft(el, cx - size * 0.5);
+            Canvas.SetTop(el,  cy - size * 0.5);
         }
 
         // ================================================================
-        // COORDINATE MAPPING
+        // TRACK POLYLINE REBUILD + TRANSFORM CACHE
+        // ================================================================
+
+        private void RebuildTrackPolylines(List<(float X, float Z)> pts)
+        {
+            _trackOutline.Points.Clear();
+            _trackCenter.Points.Clear();
+            _transformValid = false;
+
+            if (pts.Count < 5) return;
+
+            // Compute bounds
+            float minX = pts[0].X, maxX = pts[0].X;
+            float minZ = pts[0].Z, maxZ = pts[0].Z;
+            for (int i = 1; i < pts.Count; i++)
+            {
+                if (pts[i].X < minX) minX = pts[i].X;
+                if (pts[i].X > maxX) maxX = pts[i].X;
+                if (pts[i].Z < minZ) minZ = pts[i].Z;
+                if (pts[i].Z > maxZ) maxZ = pts[i].Z;
+            }
+
+            double rangeX = Math.Max(1, maxX - minX);
+            double rangeZ = Math.Max(1, maxZ - minZ);
+            double usableW = MapW - 2 * Pad;
+            double usableH = MapH - 2 * Pad;
+            double scale   = Math.Min(usableW / rangeX, usableH / rangeZ);
+
+            // Cache transform for WorldToCanvas (zero-cost per-frame)
+            _minX    = minX;
+            _minZ    = minZ;
+            _scaleX  = scale;
+            _scaleZ  = scale;
+            _drawOffX = (MapW - rangeX * scale) * 0.5;
+            _drawOffY = (MapH - rangeZ * scale) * 0.5;
+            _transformValid = true;
+
+            var canvasPoints = new PointCollection(pts.Count + 1);
+            for (int i = 0; i < pts.Count; i++)
+            {
+                var (cx, cy) = WorldToCanvas(pts[i].X, pts[i].Z);
+                canvasPoints.Add(new Point(cx, cy));
+            }
+            if (pts.Count > 100)
+                canvasPoints.Add(canvasPoints[0]);
+
+            _trackOutline.Points = canvasPoints;
+            _trackCenter.Points  = canvasPoints;
+        }
+
+        // ================================================================
+        // COORDINATE MAPPING (uses cached values — no division each call)
         // ================================================================
 
         private (double x, double y) WorldToCanvas(double wx, double wz)
         {
-            double rangeX = Math.Max(1, _maxX - _minX);
-            double rangeZ = Math.Max(1, _maxZ - _minZ);
+            return (_drawOffX + (wx - _minX) * _scaleX,
+                    _drawOffY + (wz - _minZ) * _scaleZ);
+        }
 
-            // Uniform scale (preserve aspect ratio)
-            double usableW = MapW - 2 * Pad;
-            double usableH = MapH - 2 * Pad;
-            double scale = Math.Min(usableW / rangeX, usableH / rangeZ);
+        // ================================================================
+        // HELPERS
+        // ================================================================
 
-            double drawW = rangeX * scale;
-            double drawH = rangeZ * scale;
-
-            // Center in canvas
-            double cx = (MapW - drawW) / 2 + (wx - _minX) * scale;
-            double cy = (MapH - drawH) / 2 + (wz - _minZ) * scale;
-            return (cx, cy);
+        private static Color ParseColor(string? hex, Color fallback)
+        {
+            if (string.IsNullOrWhiteSpace(hex)) return fallback;
+            try { return (Color)ColorConverter.ConvertFromString(hex)!; }
+            catch { return fallback; }
         }
     }
 }

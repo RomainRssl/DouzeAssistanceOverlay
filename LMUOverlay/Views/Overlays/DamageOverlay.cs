@@ -11,7 +11,7 @@ namespace LMUOverlay.Views.Overlays
 {
     /// <summary>
     /// Damage overlay - coordonnées calées pixel par pixel sur les assets natifs.
-    /// DentSeverity[8]: 0=FL, 1=FR, 2=RL, 3=RR, 4=Front, 5=Rear, 6=Left, 7=Right
+    /// DentSeverity[8]: 0=FL, 1=FR, 2=RL, 3=RR, 4=Rear, 5=Front, 6=Left, 7=Right
     /// </summary>
     public class DamageOverlay : BaseOverlayWindow
     {
@@ -156,11 +156,11 @@ namespace LMUOverlay.Views.Overlays
             SetZone(_zoneFR,      sev.Length > 1 ? sev[1] : 0);
             SetZone(_zoneRL,      sev.Length > 2 ? sev[2] : 0);
             SetZone(_zoneRR,      sev.Length > 3 ? sev[3] : 0);
-            SetZone(_zoneFront,   sev.Length > 4 ? sev[4] : 0);
-            SetZone(_zoneRear,    sev.Length > 5 ? sev[5] : 0);
+            SetZone(_zoneFront,   sev.Length > 5 ? sev[5] : 0);
+            SetZone(_zoneRear,    sev.Length > 4 ? sev[4] : 0);
             SetZone(_zoneLeft,    sev.Length > 6 ? sev[6] : 0);
             SetZone(_zoneRight,   sev.Length > 7 ? sev[7] : 0);
-            SetZone(_zoneAileron, sev.Length > 5 ? sev[5] : 0);
+            SetZone(_zoneAileron, sev.Length > 4 ? sev[4] : 0);
 
             if (d.Overheating)
             {

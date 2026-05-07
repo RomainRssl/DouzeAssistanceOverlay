@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using LMUOverlay.Helpers;
 using LMUOverlay.Models;
 using LMUOverlay.Services;
 
@@ -23,6 +24,18 @@ namespace LMUOverlay.Views.Overlays
 
         // Pit limiter blink
         private int _pitFlashCounter;
+
+        // Dirty-check caches — avoid redundant WPF property sets
+        private double _prevSpeedBarW = -1;
+        private int    _prevSpeedInt  = -1;
+        private Color  _prevSpeedCol  = default;
+        private double _prevRpmBarW   = -1;
+        private int    _prevRpmInt    = -1;
+        private int    _prevGear      = int.MinValue;
+        private Color  _prevRpmBarCol = default;
+        private Color  _prevRpmBgCol  = default;
+        private Color  _prevRpmTextCol = default;
+        private readonly Dictionary<string, Visibility> _cellVisCache = new();
 
         // Info cells
         private readonly Dictionary<string, (Border Cell, TextBlock Value)> _cells = new();
@@ -195,35 +208,48 @@ namespace LMUOverlay.Views.Overlays
         {
             var d = DataService.GetDashboardData();
 
-            // ---- GEAR ----
-            _gearText.Text = d.Gear switch { -1 => "R", 0 => "N", _ => d.Gear.ToString() };
+            // ---- GEAR ---- (only update when changed)
+            if (d.Gear != _prevGear)
+            {
+                _gearText.Text = d.Gear switch { -1 => "R", 0 => "N", _ => d.Gear.ToString() };
+                _prevGear = d.Gear;
+            }
 
             // ---- SPEED BAR ----
             double speedPct = Math.Clamp(d.Speed / MAX_SPEED, 0, 1);
             double speedBarW = _speedBarBg.ActualWidth > 0 ? _speedBarBg.ActualWidth * speedPct : 0;
-            _speedBarFill.Width = Math.Max(0, speedBarW);
-            _speedValueText.Text = $"{d.Speed:F0} KM/H";
+            speedBarW = Math.Max(0, speedBarW);
+            if (Math.Abs(speedBarW - _prevSpeedBarW) > 0.5) { _speedBarFill.Width = speedBarW; _prevSpeedBarW = speedBarW; }
+
+            int speedInt = (int)d.Speed;
+            if (speedInt != _prevSpeedInt) { _speedValueText.Text = $"{speedInt} KM/H"; _prevSpeedInt = speedInt; }
 
             Color speedCol = d.Speed > 300 ? Color.FromRgb(255, 59, 48) :
                              d.Speed > 200 ? Color.FromRgb(0, 200, 170) :
                              Color.FromRgb(0, 150, 130);
-            _speedBarFill.Background = new SolidColorBrush(speedCol);
+            if (speedCol != _prevSpeedCol) { _speedBarFill.Background = BrushCache.Get(speedCol); _prevSpeedCol = speedCol; }
             _speedBarBg.Visibility = _cfg.ShowSpeed ? Visibility.Visible : Visibility.Collapsed;
 
             // ---- RPM BAR ----
             double rpmPct = d.MaxRPM > 0 ? Math.Clamp(d.RPM / d.MaxRPM, 0, 1) : 0;
             double rpmBarW = _rpmBarBg.ActualWidth > 0 ? _rpmBarBg.ActualWidth * rpmPct : 0;
-            _rpmBarFill.Width = Math.Max(0, rpmBarW);
-            _rpmValueText.Text = $"{d.RPM:F0} RPM";
+            rpmBarW = Math.Max(0, rpmBarW);
+            if (Math.Abs(rpmBarW - _prevRpmBarW) > 0.5) { _rpmBarFill.Width = rpmBarW; _prevRpmBarW = rpmBarW; }
+
+            int rpmInt = (int)d.RPM;
+            if (rpmInt != _prevRpmInt) { _rpmValueText.Text = $"{rpmInt} RPM"; _prevRpmInt = rpmInt; }
             _rpmBarBg.Visibility = _cfg.ShowRPM ? Visibility.Visible : Visibility.Collapsed;
 
             if (rpmPct > 0.97)
             {
                 _flashCounter++;
                 bool on = (_flashCounter / 3) % 2 == 0;
-                _rpmBarFill.Background = new SolidColorBrush(on ? OverlayHelper.AccRed : Color.FromRgb(80, 0, 0));
-                _rpmBarBg.Background = new SolidColorBrush(on ? Color.FromRgb(60, 10, 10) : Color.FromRgb(20, 40, 40));
-                _rpmValueText.Foreground = new SolidColorBrush(on ? Colors.White : Color.FromRgb(200, 80, 80));
+                Color wantBar  = on ? OverlayHelper.AccRed      : Color.FromRgb(80, 0, 0);
+                Color wantBg   = on ? Color.FromRgb(60, 10, 10) : Color.FromRgb(20, 40, 40);
+                Color wantText = on ? Colors.White               : Color.FromRgb(200, 80, 80);
+                if (wantBar  != _prevRpmBarCol)  { _rpmBarFill.Background  = BrushCache.Get(wantBar);  _prevRpmBarCol  = wantBar; }
+                if (wantBg   != _prevRpmBgCol)   { _rpmBarBg.Background    = BrushCache.Get(wantBg);   _prevRpmBgCol   = wantBg; }
+                if (wantText != _prevRpmTextCol) { _rpmValueText.Foreground = BrushCache.Get(wantText); _prevRpmTextCol = wantText; }
             }
             else
             {
@@ -231,9 +257,11 @@ namespace LMUOverlay.Views.Overlays
                 Color barCol = rpmPct > 0.90 ? OverlayHelper.AccRed :
                                rpmPct > 0.80 ? OverlayHelper.AccYellow :
                                OverlayHelper.AccBlue;
-                _rpmBarFill.Background = new SolidColorBrush(barCol);
-                _rpmBarBg.Background = new SolidColorBrush(Color.FromRgb(20, 40, 40));
-                _rpmValueText.Foreground = Brushes.White;
+                Color bgCol   = Color.FromRgb(20, 40, 40);
+                Color textCol = Colors.White;
+                if (barCol  != _prevRpmBarCol)  { _rpmBarFill.Background  = BrushCache.Get(barCol);  _prevRpmBarCol  = barCol; }
+                if (bgCol   != _prevRpmBgCol)   { _rpmBarBg.Background    = BrushCache.Get(bgCol);   _prevRpmBgCol   = bgCol; }
+                if (textCol != _prevRpmTextCol) { _rpmValueText.Foreground = Brushes.White;           _prevRpmTextCol = textCol; }
             }
 
             // ---- CELLS ----
@@ -250,25 +278,22 @@ namespace LMUOverlay.Views.Overlays
                     {
                         _pitFlashCounter++;
                         bool pitOn = (_pitFlashCounter / 4) % 2 == 0;
-                        _lapCellBorder.Background = new SolidColorBrush(
-                            pitOn ? Color.FromRgb(0, 60, 30) : Color.FromRgb(0, 20, 10));
+                        _lapCellBorder.Background = BrushCache.Get(pitOn ? Color.FromRgb(0, 60, 30) : Color.FromRgb(0, 20, 10));
                         _lapLabel.Text = "PIT";
-                        _lapLabel.Foreground = new SolidColorBrush(
-                            pitOn ? Color.FromRgb(0, 255, 130) : Color.FromRgb(0, 100, 60));
+                        _lapLabel.Foreground = BrushCache.Get(pitOn ? Color.FromRgb(0, 255, 130) : Color.FromRgb(0, 100, 60));
                         _lapValue.Text = "LIMITER";
                         _lapValue.FontSize = 9;
-                        _lapValue.Foreground = new SolidColorBrush(
-                            pitOn ? Color.FromRgb(0, 220, 110) : Color.FromRgb(0, 80, 50));
+                        _lapValue.Foreground = BrushCache.Get(pitOn ? Color.FromRgb(0, 220, 110) : Color.FromRgb(0, 80, 50));
                     }
                     else
                     {
                         _pitFlashCounter = 0;
-                        _lapCellBorder.Background = new SolidColorBrush(OverlayHelper.BgCell);
+                        _lapCellBorder.Background = BrushCache.Get(OverlayHelper.BgCell);
                         _lapLabel.Text = "LAP";
-                        _lapLabel.Foreground = new SolidColorBrush(OverlayHelper.TextSecondary);
+                        _lapLabel.Foreground = BrushCache.Get(OverlayHelper.TextSecondary);
                         _lapValue.Text = $"{d.TotalLaps}";
                         _lapValue.FontSize = 14;
-                        _lapValue.Foreground = new SolidColorBrush(OverlayHelper.TextValue);
+                        _lapValue.Foreground = BrushCache.Get(OverlayHelper.TextValue);
                     }
                 }
             }
@@ -278,7 +303,7 @@ namespace LMUOverlay.Views.Overlays
                 var c = _cells["ShowFuel"];
                 c.Value.Text = $"{d.Fuel:F1}L";
                 double pct = d.FuelCapacity > 0 ? d.Fuel / d.FuelCapacity : 0;
-                c.Value.Foreground = new SolidColorBrush(
+                c.Value.Foreground = BrushCache.Get(
                     pct > 0.3 ? OverlayHelper.AccGreen :
                     pct > 0.15 ? OverlayHelper.AccYellow : OverlayHelper.AccRed);
             }
@@ -304,7 +329,7 @@ namespace LMUOverlay.Views.Overlays
             {
                 var c = _cells["ShowEnergy"];
                 c.Value.Text = $"{d.Energy:F0}%";
-                c.Value.Foreground = new SolidColorBrush(
+                c.Value.Foreground = BrushCache.Get(
                     d.Energy > 50 ? OverlayHelper.AccGreen :
                     d.Energy > 20 ? OverlayHelper.AccYellow : OverlayHelper.AccRed);
             }
@@ -317,7 +342,7 @@ namespace LMUOverlay.Views.Overlays
             {
                 var c = _cells["ShowWaterTemp"];
                 c.Value.Text = d.WaterTemp > 0 ? $"{d.WaterTemp:F0}°C" : "--";
-                c.Value.Foreground = new SolidColorBrush(
+                c.Value.Foreground = BrushCache.Get(
                     d.WaterTemp > 110 ? OverlayHelper.AccRed :
                     d.WaterTemp > 100 ? OverlayHelper.AccYellow :
                     OverlayHelper.AccGreen);
@@ -328,7 +353,7 @@ namespace LMUOverlay.Views.Overlays
             {
                 var c = _cells["ShowOilTemp"];
                 c.Value.Text = d.OilTemp > 0 ? $"{d.OilTemp:F0}°C" : "--";
-                c.Value.Foreground = new SolidColorBrush(
+                c.Value.Foreground = BrushCache.Get(
                     d.OilTemp > 140 ? OverlayHelper.AccRed :
                     d.OilTemp > 130 ? OverlayHelper.AccYellow :
                     OverlayHelper.AccGreen);
@@ -341,14 +366,14 @@ namespace LMUOverlay.Views.Overlays
                 if (d.Overheating)
                 {
                     c.Value.Text = "⚠ HOT";
-                    c.Value.Foreground = new SolidColorBrush(OverlayHelper.AccRed);
-                    c.Cell.Background = new SolidColorBrush(Color.FromArgb(180, 100, 0, 0));
+                    c.Value.Foreground = BrushCache.Get(OverlayHelper.AccRed);
+                    c.Cell.Background  = BrushCache.Get(180, 100, 0, 0);
                 }
                 else
                 {
                     c.Value.Text = "OK";
-                    c.Value.Foreground = new SolidColorBrush(OverlayHelper.AccGreen);
-                    c.Cell.Background = new SolidColorBrush(OverlayHelper.BgRed);
+                    c.Value.Foreground = BrushCache.Get(OverlayHelper.AccGreen);
+                    c.Cell.Background  = BrushCache.Get(OverlayHelper.BgRed);
                 }
             }
         }
@@ -357,8 +382,13 @@ namespace LMUOverlay.Views.Overlays
         {
             if (_cells.TryGetValue(key, out var c))
             {
-                c.Value.Text = text;
-                c.Cell.Visibility = _cfg.IsVisible(key) ? Visibility.Visible : Visibility.Collapsed;
+                if (c.Value.Text != text) c.Value.Text = text;
+                Visibility want = _cfg.IsVisible(key) ? Visibility.Visible : Visibility.Collapsed;
+                if (!_cellVisCache.TryGetValue(key, out var prev) || prev != want)
+                {
+                    c.Cell.Visibility = want;
+                    _cellVisCache[key] = want;
+                }
             }
         }
 
@@ -367,7 +397,12 @@ namespace LMUOverlay.Views.Overlays
             if (_cells.TryGetValue(key, out var c))
             {
                 bool vis = _cfg.IsVisible(key);
-                c.Cell.Visibility = vis ? Visibility.Visible : Visibility.Collapsed;
+                Visibility want = vis ? Visibility.Visible : Visibility.Collapsed;
+                if (!_cellVisCache.TryGetValue(key, out var prev) || prev != want)
+                {
+                    c.Cell.Visibility = want;
+                    _cellVisCache[key] = want;
+                }
                 return vis;
             }
             return false;

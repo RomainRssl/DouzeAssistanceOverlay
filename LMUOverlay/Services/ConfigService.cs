@@ -22,7 +22,16 @@ namespace LMUOverlay.Services
                 if (File.Exists(ConfigPath))
                 {
                     string json = File.ReadAllText(ConfigPath);
-                    return JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
+                    var cfg = JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
+                    // Guard against null sub-objects (config.json from older version)
+                    cfg.General          ??= new GeneralSettings();
+                    cfg.Chrono           ??= new ChronoSettings();
+                    cfg.StandingsColumns ??= new StandingsColumnConfig();
+                    cfg.StandingsDisplay ??= new StandingsDisplayConfig();
+                    cfg.DashboardConfig  ??= new DashboardDisplayConfig();
+                    cfg.InputConfig      ??= new InputDisplayConfig();
+                    cfg.RelativeConfig   ??= new RelativeConfig();
+                    return cfg;
                 }
             }
             catch (Exception ex)

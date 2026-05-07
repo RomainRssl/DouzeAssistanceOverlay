@@ -1,3 +1,6 @@
+using System.IO;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -7,7 +10,6 @@ namespace LMUOverlay
     {
         protected override void OnStartup(StartupEventArgs e)
         {
-            // Catch ALL unhandled exceptions and show full details
             DispatcherUnhandledException += OnDispatcherException;
             AppDomain.CurrentDomain.UnhandledException += OnDomainException;
             TaskScheduler.UnobservedTaskException += OnTaskException;
@@ -18,7 +20,7 @@ namespace LMUOverlay
         private void OnDispatcherException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             ShowError("UI Thread Exception", e.Exception);
-            e.Handled = true; // Don't crash — keep app alive
+            e.Handled = true;
         }
 
         private void OnDomainException(object sender, UnhandledExceptionEventArgs e)
@@ -29,8 +31,36 @@ namespace LMUOverlay
 
         private void OnTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
         {
-            ShowError("Task Exception", e.Exception);
+            // Mark as observed unconditionally to prevent app crash
             e.SetObserved();
+
+            // Network / IO errors in fire-and-forget tasks (leaderboard, updater, etc.)
+            // are transient and non-actionable — just log them silently.
+            if (IsNetworkException(e.Exception))
+            {
+                System.Diagnostics.Debug.WriteLine($"[Task] Erreur réseau ignorée : {e.Exception.InnerException?.Message ?? e.Exception.Message}");
+                return;
+            }
+
+            // Anything else is unexpected — show it so it can be reported.
+            ShowError("Task Exception", e.Exception);
+        }
+
+        // Returns true if all inner exceptions are network/cancellation related
+        private static bool IsNetworkException(AggregateException agg)
+        {
+            foreach (var inner in agg.Flatten().InnerExceptions)
+            {
+                if (inner is IOException
+                 || inner is SocketException
+                 || inner is HttpRequestException
+                 || inner is OperationCanceledException
+                 || inner is TaskCanceledException)
+                    continue;
+
+                return false; // at least one non-network exception
+            }
+            return true;
         }
 
         private static void ShowError(string context, Exception ex)
@@ -47,8 +77,6 @@ namespace LMUOverlay
                      + $"Stack: {ex.InnerException.StackTrace}";
 
             MessageBox.Show(msg, "Douze Assistance — Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-
-            // Also write to debug output
             System.Diagnostics.Debug.WriteLine($"=== LMU OVERLAY ERROR ===\n{msg}");
         }
     }

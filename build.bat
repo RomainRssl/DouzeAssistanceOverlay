@@ -60,9 +60,18 @@ echo      OK
 echo.
 
 :: ============================================================
-:: Étape 1b : Régénérer app.ico depuis logo.png
+:: Étape 1b : Mettre à jour le badge version dans README.md
 :: ============================================================
-echo [1b] Regeneration app.ico depuis logo.png...
+echo [1b] Mise a jour version dans README.md...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$c = Get-Content -Path 'README.md' -Raw; $c = $c -replace 'version-[0-9]+\.[0-9]+\.[0-9]+-blue', 'version-!VERSION!-blue'; Set-Content -Path 'README.md' -Value $c -NoNewline"
+if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1b & pause & exit /b 1 )
+echo      OK
+echo.
+
+:: ============================================================
+:: Étape 1c : Régénérer app.ico depuis logo.png
+:: ============================================================
+echo [1c] Regeneration app.ico depuis logo.png...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "Add-Type -AssemblyName System.Drawing; $src=[System.Drawing.Image]::FromFile('LMUOverlay\LMUOverlay\Resources\logo.png'); $dst='LMUOverlay\LMUOverlay\Resources\app.ico'; $sizes=@(256,128,64,48,32,24,16); $streams=@(); foreach($sz in $sizes){$bmp=New-Object System.Drawing.Bitmap($sz,$sz);$g=[System.Drawing.Graphics]::FromImage($bmp);$g.InterpolationMode=[System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic;$g.PixelOffsetMode=[System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality;$g.DrawImage($src,0,0,$sz,$sz);$ms=New-Object System.IO.MemoryStream;$bmp.Save($ms,[System.Drawing.Imaging.ImageFormat]::Png);$streams+=$ms;$g.Dispose();$bmp.Dispose()};$src.Dispose();$out=New-Object System.IO.MemoryStream;$w=New-Object System.IO.BinaryWriter($out);$w.Write([uint16]0);$w.Write([uint16]1);$w.Write([uint16]$sizes.Count);$off=6+16*$sizes.Count;for($i=0;$i -lt $sizes.Count;$i++){$b=$streams[$i].ToArray();$d=if($sizes[$i]-ge 256){0}else{$sizes[$i]};$w.Write([byte]$d);$w.Write([byte]$d);$w.Write([byte]0);$w.Write([byte]0);$w.Write([uint16]1);$w.Write([uint16]32);$w.Write([uint32]$b.Length);$w.Write([uint32]$off);$off+=$b.Length};foreach($ms in $streams){$w.Write($ms.ToArray());$ms.Dispose()};$w.Flush();[System.IO.File]::WriteAllBytes($dst,$out.ToArray());$out.Dispose();$w.Dispose();Write-Host 'ICO OK'"
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1b & pause & exit /b 1 )
@@ -73,7 +82,7 @@ echo.
 :: Étape 2 : Compilation
 :: ============================================================
 echo [2/6] Compilation...
-dotnet publish %CSPROJ% -c Release -r win-x64 --no-self-contained -p:PublishSingleFile=false -p:Version=!VERSION! -p:AssemblyVersion=!VERSION!.0 -p:FileVersion=!VERSION!.0 -o %PUBLISH_DIR%
+dotnet publish %CSPROJ% -c Release -r win-x64 --no-self-contained -p:PublishSingleFile=false -p:Version=!VERSION! -p:AssemblyVersion=!VERSION! -p:FileVersion=!VERSION! -o %PUBLISH_DIR%
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 2 & pause & exit /b 1 )
 echo      OK
 echo.
@@ -118,7 +127,7 @@ echo [6/6] Publication GitHub...
 where git >nul 2>&1
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR: git non trouve & pause & exit /b 1 )
 
-git add update.xml %CSPROJ%
+git add update.xml %CSPROJ% README.md
 git commit -m "Release v!VERSION!"
 git pull --rebase origin main
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR: git pull echoue & pause & exit /b 1 )

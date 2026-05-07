@@ -15,6 +15,9 @@ namespace LMUOverlay.Services
         private readonly DispatcherTimer _updateTimer;
         private readonly DispatcherTimer _connectionTimer;
         private readonly Dictionary<string, BaseOverlayWindow> _overlays = new();
+        private readonly LeaderboardService _leaderboard;
+        private readonly VoiceService _voice;
+        private int _voiceTickCount;
         private bool _initialized;
 
         // VR — backend abstrait (SteamVR ou OpenXR selon le runtime actif)
@@ -22,8 +25,44 @@ namespace LMUOverlay.Services
 
         public bool IsConnected => _reader.IsConnected;
         public DataService DataService => _dataService;
+        public VoiceService VoiceService => _voice;
         public IVRService? VRService => _vrService;
         public bool IsVRActive => _vrService?.IsVRActive ?? false;
+
+        /// <summary>
+        /// Quand true, affiche tous les overlays actifs indépendamment de HideInMenus.
+        /// Se désactive en appelant SetForceDisplay(false), qui masque tous les overlays.
+        /// </summary>
+        public bool ForceDisplay { get; private set; }
+
+        /// <summary>
+        /// Compteur de ticks pour le throttling des overlays lents.
+        /// </summary>
+        private int _tickCount;
+
+        /// <summary>
+        /// Détection de pause via gel de mCurrentET.
+        /// LMU ne change ni mGamePhase ni mInRealtime lors du menu ESC —
+        /// seul mCurrentET se fige. Après 10 ticks sans changement (~330ms) → pause détectée.
+        /// </summary>
+        private double _lastET = -1;
+        private int _frozenETTicks;
+        private const int FrozenETThreshold = 45; // ~1.5s à 30Hz — réduit les faux positifs en conduite
+
+        /// <summary>
+        /// Overlays qui n'ont pas besoin d'être rafraîchis à 30Hz.
+        /// Ils se mettent à jour 1 tick sur 3 (≈10Hz).
+        /// </summary>
+        private static readonly HashSet<string> _slowOverlays = new()
+        {
+            "StandingsOverall", "StandingsRelative", "TrackMap", "LapHistory", "LapGraph"
+        };
+
+        /// <summary>
+        /// Overlays persistants : toujours visibles quand activés,
+        /// indépendants de HideInMenus et de l'état de connexion.
+        /// </summary>
+        private static readonly HashSet<string> _persistentOverlays = new() { "Clock" };
 
         public event EventHandler<bool>? ConnectionChanged;
         public event EventHandler<bool>? VRStatusChanged;
@@ -33,6 +72,11 @@ namespace LMUOverlay.Services
             _config = config;
             _reader = new SharedMemoryReader();
             _dataService = new DataService(_reader);
+            _leaderboard = new LeaderboardService(config.General);
+            _voice       = new VoiceService(config.General);
+
+            _dataService.LapCompleted += OnLapCompleted;
+            _dataService.LapCompleted += args => _voice.SpeakLap(args);
 
             _updateTimer = new DispatcherTimer
             {
@@ -76,11 +120,17 @@ namespace LMUOverlay.Services
             RegisterOverlay("GForce", new GForceOverlay(_dataService, _config.GForce));
             RegisterOverlay("Dashboard", new DashboardOverlay(_dataService, _config.Dashboard, _config.DashboardConfig));
             RegisterOverlay("RelativeAheadBehind", new RelativeAheadBehindOverlay(_dataService, _config.RelativeAheadBehind));
-            RegisterOverlay("TrackLimits", new TrackLimitsOverlay(_dataService, _config.TrackLimits));
             RegisterOverlay("BlindSpot", new BlindSpotOverlay(_dataService, _config.BlindSpot));
             RegisterOverlay("Rejoin", new RejoinOverlay(_dataService, _config.Rejoin));
+            RegisterOverlay("Note",   new NoteOverlay(_dataService,   _config.Note));
+            RegisterOverlay("Compteur", new CompteurOverlay(_dataService, _config.Compteur));
+            RegisterOverlay("Clock",    new ClockOverlay(_dataService, _config.Clock));
 
             _initialized = true;
+
+            // Persistent overlays are shown immediately regardless of connection
+            foreach (var key in _persistentOverlays)
+                if (_overlays.TryGetValue(key, out var o) && o.Settings.IsEnabled) o.Show();
 
             if (_config.General.AutoConnect)
                 _connectionTimer.Start();
@@ -162,9 +212,21 @@ namespace LMUOverlay.Services
         {
             if (_reader.Connect())
             {
+                // If ForceDisplay was ON (preview while disconnected), reset it
+                if (ForceDisplay)
+                {
+                    ForceDisplay = false;
+                    foreach (var (key, o) in _overlays)
+                    {
+                        if (_persistentOverlays.Contains(key)) continue;
+                        if (o.IsVisible) o.Hide();
+                    }
+                }
+
                 _connectionTimer.Stop();
                 _updateTimer.Interval = TimeSpan.FromMilliseconds(1000.0 / _config.General.UpdateRateHz);
                 _updateTimer.Start();
+                _voice.ResetSession();
                 ConnectionChanged?.Invoke(this, true);
                 RefreshOverlayVisibility();
             }
@@ -173,7 +235,13 @@ namespace LMUOverlay.Services
         public void Disconnect()
         {
             _updateTimer.Stop();
-            HideAll();
+            ForceDisplay = false;
+            // Hide race overlays without disabling them (IsEnabled stays intact)
+            foreach (var (key, o) in _overlays)
+            {
+                if (_persistentOverlays.Contains(key)) continue;
+                if (o.IsVisible) o.Hide();
+            }
             _reader.Disconnect();
             _connectionTimer.Start();
         }
@@ -186,37 +254,65 @@ namespace LMUOverlay.Services
 
         private void OnUpdateTick(object? sender, EventArgs e)
         {
+            // Persistent overlays (e.g., Note) are always shown when enabled,
+            // regardless of connection state. Update them first if visible.
+            foreach (var (key, overlay) in _overlays)
+            {
+                if (!_persistentOverlays.Contains(key)) continue;
+                if (overlay.Settings.IsEnabled)
+                {
+                    if (!overlay.IsVisible) overlay.Show();
+                }
+            }
+
             if (!_reader.IsConnected) return;
 
             try { _reader.Update(); }
             catch { Disconnect(); return; }
 
             _dataService.UpdateTelemetryTrace();
+            _dataService.UpdateOpponentTraces();
 
-            // Hide overlays when in game menus / garage
+            // Alertes vocales throttlées à ~3Hz (toutes les 10 ticks à 30Hz)
+            if (++_voiceTickCount % 10 == 0)
+                _voice.CheckAlerts(_dataService);
+
+            // ── Throttling : les overlays lents ne se mettent à jour qu'1 tick sur 3 ──
+            bool isSlowTick = _tickCount++ % 3 == 0;
+
+            // ── Visibilité des overlays selon HideInMenus ──────────────────
+            // ForceDisplay est réservé au mode déconnecté (géré dans SetForceDisplay).
+            // Quand connecté : HideInMenus ON = piste uniquement, OFF = toujours.
             if (_config.General.HideInMenus)
             {
                 byte gp = _reader.ScoringInfo.mGamePhase;
                 int numVehicles = _reader.ScoringInfo.mNumVehicles;
                 double sessionET = _reader.ScoringInfo.mCurrentET;
 
-                // On track = gamePhase >= 3 AND vehicles present AND session running
-                // In garage/menus: numVehicles = 0, or gamePhase < 3, or mCurrentET = 0
-                bool onTrack = gp >= 3 && numVehicles > 0 && sessionET > 0;
+                // Détection pause ESC : LMU ne change ni gp ni inRealtime lors du menu ESC.
+                // Seul mCurrentET se fige. Après FrozenETThreshold ticks sans avancement → pause.
+                if (sessionET != _lastET) { _lastET = sessionET; _frozenETTicks = 0; }
+                else { _frozenETTicks++; }
+                bool etRunning = _frozenETTicks < FrozenETThreshold;
 
-                foreach (var overlay in _overlays.Values)
+                // mInRealtime=0 dans le lobby pré-session (joueur pas encore dans la voiture).
+                // LMU ne le passe pas à 0 pour le menu ESC (d'où la détection par gel d'ET ci-dessus),
+                // mais il est bien 0 dans l'écran de sélection/attente avant de commencer à piloter.
+                bool inRealtime = _reader.ScoringInfo.mInRealtime != 0;
+
+                bool onTrack = gp >= 3 && gp <= 6 && numVehicles > 0 && sessionET > 0 && etRunning && inRealtime;
+
+                foreach (var (key, overlay) in _overlays)
                 {
+                    if (_persistentOverlays.Contains(key)) continue;
                     if (overlay.Settings.IsEnabled)
                     {
                         if (onTrack)
                         {
                             if (!overlay.IsVisible) overlay.Show();
+                            if (_slowOverlays.Contains(key) && !isSlowTick) continue;
                             try { overlay.UpdateData(); }
-                            catch (Exception ex)
-                            {
-                                System.Diagnostics.Debug.WriteLine(
-                                    $"Overlay error ({overlay.Settings.Name}): {ex.Message}");
-                            }
+                            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Overlay error ({overlay.Settings.Name}): {ex.Message}"); }
                         }
                         else
                         {
@@ -227,17 +323,16 @@ namespace LMUOverlay.Services
             }
             else
             {
-                // Normal: update all visible overlays
-                foreach (var overlay in _overlays.Values)
+                // HideInMenus OFF : show all enabled overlays all the time
+                foreach (var (key, overlay) in _overlays)
                 {
-                    if (overlay.IsVisible)
+                    if (_persistentOverlays.Contains(key)) continue;
+                    if (overlay.Settings.IsEnabled)
                     {
+                        if (!overlay.IsVisible) overlay.Show();
+                        if (_slowOverlays.Contains(key) && !isSlowTick) continue;
                         try { overlay.UpdateData(); }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine(
-                                $"Overlay error ({overlay.Settings.Name}): {ex.Message}");
-                        }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Overlay error ({overlay.Settings.Name}): {ex.Message}"); }
                     }
                 }
             }
@@ -260,15 +355,50 @@ namespace LMUOverlay.Services
         // VISIBILITY / LOCK
         // ================================================================
 
+        /// <summary>
+        /// Active ou désactive le mode "forcer l'affichage".
+        /// Uniquement disponible quand DÉCONNECTÉ (préview / positionnement).
+        /// ON  → affiche immédiatement tous les overlays activés.
+        /// OFF → cache tous les overlays.
+        /// </summary>
+        public void SetForceDisplay(bool force)
+        {
+            ForceDisplay = force;
+            if (force)
+            {
+                foreach (var o in _overlays.Values)
+                    if (o.Settings.IsEnabled) o.Show();
+            }
+            else
+            {
+                foreach (var (key, o) in _overlays)
+                {
+                    if (_persistentOverlays.Contains(key)) continue;
+                    if (o.IsVisible) o.Hide();
+                }
+            }
+        }
+
         public void RefreshOverlayVisibility()
         {
-            if (!_reader.IsConnected)
+            // Quand déconnecté : ForceDisplay gère la visibilité (bouton activé côté UI)
+            if (!_reader.IsConnected) return;
+
+            // HideInMenus ON : cacher si pas en piste
+            if (_config.General.HideInMenus && !IsOnTrack())
             {
-                foreach (var o in _overlays.Values) o.Hide();
+                foreach (var (key, o) in _overlays)
+                {
+                    if (_persistentOverlays.Contains(key)) continue;
+                    o.Hide();
+                }
                 return;
             }
-            foreach (var o in _overlays.Values)
+
+            // HideInMenus OFF ou en piste : afficher tous les activés
+            foreach (var (key, o) in _overlays)
             {
+                if (_persistentOverlays.Contains(key)) continue;
                 if (o.Settings.IsEnabled) o.Show(); else o.Hide();
             }
         }
@@ -288,11 +418,11 @@ namespace LMUOverlay.Services
 
         public void ShowAll()
         {
+            // Coche uniquement toutes les cases — l'affichage réel est géré par
+            // RefreshOverlayVisibility() qui respecte HideInMenus et l'état de connexion.
             foreach (var o in _overlays.Values)
-            {
                 o.Settings.IsEnabled = true;
-                if (_reader.IsConnected) o.Show();
-            }
+            RefreshOverlayVisibility();
         }
 
         /// <summary>Returns true if the player is currently on track (not in menus/garage).</summary>
@@ -302,7 +432,8 @@ namespace LMUOverlay.Services
             byte gp = _reader.ScoringInfo.mGamePhase;
             int numV = _reader.ScoringInfo.mNumVehicles;
             double et = _reader.ScoringInfo.mCurrentET;
-            return gp >= 3 && numV > 0 && et > 0;
+            bool etRunning = _frozenETTicks < FrozenETThreshold;
+            return gp >= 3 && gp <= 6 && numV > 0 && et > 0 && etRunning;
         }
 
         public void HideAll()
@@ -324,6 +455,23 @@ namespace LMUOverlay.Services
         }
 
         // ================================================================
+        // LEADERBOARD
+        // ================================================================
+
+        private void OnUpdateOpponents() => _dataService.UpdateOpponentTraces();
+
+        private void OnLapCompleted(DataService.LapCompletedArgs args)
+        {
+            string version = System.Reflection.Assembly
+                .GetExecutingAssembly().GetName().Version?.ToString(3) ?? "?";
+
+            _leaderboard.SubmitLap(
+                args.Circuit, args.CarClass, args.CarName,
+                args.LapTime, args.Sector1, args.Sector2, args.Sector3,
+                version);
+        }
+
+        // ================================================================
         // DISPOSE
         // ================================================================
 
@@ -332,6 +480,7 @@ namespace LMUOverlay.Services
             _updateTimer.Stop();
             _connectionTimer.Stop();
 
+            _voice.Dispose();
             _vrService?.Dispose();
 
             foreach (var o in _overlays.Values)
