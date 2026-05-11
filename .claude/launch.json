@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "LMUOverlay (Release build)",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "LMUOverlay/LMUOverlay/LMUOverlay.csproj", "-c", "Release"],
+      "port": 6397
+    },
+    {
+      "name": "LMUOverlay (Debug build)",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "LMUOverlay/LMUOverlay/LMUOverlay.csproj", "-c", "Debug"],
+      "port": 6397
+    }
+  ]
+}

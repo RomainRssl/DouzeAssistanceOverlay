@@ -1,0 +1,47 @@
+﻿{
+  "name": "Endurance Noir",
+  "colors": {
+    "background":      "#0A0B0D",
+    "panelBackground": "#0C0E12",
+    "panelAlpha":      235,
+    "accentPrimary":   "#C41E28",
+    "accentSecondary": "#B48C32",
+    "textPrimary":     "#E8E2D8",
+    "textSecondary":   "#7A7570",
+    "textMuted":       "#3D3B39",
+    "stateGood":       "#1A9E5C",
+    "stateWarn":       "#D4A017",
+    "stateDanger":     "#C41E28",
+    "stateBestLap":    "#A855F7",
+    "border":          "#111318",
+    "hypercar":        "#B48C32",
+    "lmp2":            "#1A6EB5",
+    "lmgt":            "#D4670A",
+    "gt3":             "#1A9E5C"
+  },
+  "typography": {
+    "displayFamily":         "Barlow Condensed",
+    "displayFamilyFallback": "Calibri",
+    "monoFamily":            "Share Tech Mono",
+    "monoFamilyFallback":    "Consolas",
+    "sizeLabel":  9,
+    "sizeBase":   11,
+    "sizeLarge":  14,
+    "sizeHuge":   22
+  },
+  "geometry": {
+    "cornerRadius":    3,
+    "borderThickness": 1,
+    "panelPadding":    8,
+    "headerHeight":    20,
+    "rowHeight":       22,
+    "cellPaddingH":    4,
+    "cellPaddingV":    2
+  },
+  "effects": {
+    "barGradient": true,
+    "accentLine":  true,
+    "alertGlow":   false,
+    "roundedBars": false
+  }
+}
