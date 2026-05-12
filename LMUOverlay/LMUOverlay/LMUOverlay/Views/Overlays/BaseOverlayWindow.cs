@@ -501,14 +501,15 @@ namespace LMUOverlay.Views.Overlays
             switch (_activeEdge)
             {
                 case Edge.Right:
+                    // Bord droit : largeur libre, hauteur inchangée (contenu scale dans Viewbox)
                     Width  = Math.Max(60, _resizeStartW + dx);
-                    if (_aspectRatio > 0) Height = Width / _aspectRatio;
                     break;
                 case Edge.Bottom:
+                    // Bord bas : hauteur libre, largeur inchangée
                     Height = Math.Max(40, _resizeStartH + dy);
-                    if (_aspectRatio > 0) Width  = Height * _aspectRatio;
                     break;
                 case Edge.Corner:
+                    // Coin : resize proportionnel (ratio figé au début du drag)
                     Width  = Math.Max(60, _resizeStartW + dx);
                     if (_aspectRatio > 0) Height = Width / _aspectRatio;
                     break;

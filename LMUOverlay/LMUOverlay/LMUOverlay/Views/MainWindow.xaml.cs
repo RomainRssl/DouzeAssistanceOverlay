@@ -63,6 +63,7 @@ namespace LMUOverlay.Views
                 ("Compteur",           "COMPTEUR",      _config.Compteur),
                 ("Clock",              "HORLOGE",       _config.Clock),
                 ("TwitchChat",         "TCHAT TWITCH",  _config.TwitchChat),
+                ("PitDistance",        "STANDS",        _config.PitDistance),
             };
 
             App.WriteCrashLog("[INIT] BuildSidebar\n");
@@ -392,7 +393,9 @@ namespace LMUOverlay.Views
             if (key == "InputGraph")
             {
                 AddSep();
-                AddToggles("INPUT ELEMENTS", InputDisplayConfig.AllItems, _config.InputConfig);
+                // Callback : applique la visibilité immédiatement même sans LMU connecté
+                AddToggles("INPUT ELEMENTS", InputDisplayConfig.AllItems, _config.InputConfig,
+                    () => _overlayManager.GetOverlay<InputGraphOverlay>("InputGraph")?.ApplyVisibility());
                 AddSep();
 
                 // Line thickness
@@ -518,6 +521,13 @@ namespace LMUOverlay.Views
                 // ── Max messages ──────────────────────────────────────────────
                 AddSlider("Nb messages", _config.Twitch.MaxMessages, 5, 50,
                     v => _config.Twitch.MaxMessages = (int)v, "F0");
+            }
+            if (key == "PitDistance")
+            {
+                AddSep();
+                AddToggle("Auto-afficher sur demande pit",
+                    _config.PitDistanceConfig.AutoShowOnPitRequest,
+                    v => _config.PitDistanceConfig.AutoShowOnPitRequest = v);
             }
         }
 
@@ -713,7 +723,8 @@ namespace LMUOverlay.Views
             Add(row);
         }
 
-        private void AddToggles(string title, (string Key, string Label)[] items, object cfg)
+        private void AddToggles(string title, (string Key, string Label)[] items, object cfg,
+                                Action? onChanged = null)
         {
             Add(new TextBlock { Text = title, FontSize = 10, FontWeight = FontWeights.SemiBold, FontFamily = new FontFamily("Segoe UI Semibold"), Foreground = B(82, 82, 82), Margin = new Thickness(0, 4, 0, 6) });
             var ct = cfg.GetType();
@@ -727,8 +738,8 @@ namespace LMUOverlay.Views
                 r.Children.Add(new TextBlock { Text = label, FontSize = 11, FontFamily = new FontFamily("Segoe UI"), Foreground = B(163, 163, 163), VerticalAlignment = VerticalAlignment.Center });
                 var t = new CheckBox { IsChecked = on, Style = (Style)FindResource("ToggleSwitchStyle") };
                 string ck = key;
-                t.Checked += (s, e) => ct.GetProperty(ck)?.SetValue(cfg, true);
-                t.Unchecked += (s, e) => ct.GetProperty(ck)?.SetValue(cfg, false);
+                t.Checked   += (s, e) => { ct.GetProperty(ck)?.SetValue(cfg, true);  onChanged?.Invoke(); };
+                t.Unchecked += (s, e) => { ct.GetProperty(ck)?.SetValue(cfg, false); onChanged?.Invoke(); };
                 Grid.SetColumn(t, 1); r.Children.Add(t);
                 Add(r);
             }

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,8 +10,8 @@
     <RootNamespace>LMUOverlay</RootNamespace>
     <AssemblyName>DouzeAssistance</AssemblyName>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
-    <Description>Douze Assistance â€” Le Mans Ultimate Overlay</Description>
-    <Version>2.2.0</Version>
+    <Description>Douze Assistance — Le Mans Ultimate Overlay</Description>
+    <Version>2.2.1</Version>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
   </PropertyGroup>
@@ -39,14 +39,14 @@
     </None>
   </ItemGroup>
 
-  <!-- Packs vocaux WAV â€” copiÃ©s dans voice\<pack>\ Ã  cÃ´tÃ© de l'exe -->
+  <!-- Packs vocaux WAV — copiés dans voice\<pack>\ à côté de l'exe -->
   <ItemGroup>
     <Content Include="voice\**\*.wav">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
-  <!-- ThÃ¨mes JSON â€” copiÃ©s dans themes\ Ã  cÃ´tÃ© de l'exe -->
+  <!-- Thèmes JSON — copiés dans themes\ à côté de l'exe -->
   <ItemGroup>
     <Content Include="themes\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

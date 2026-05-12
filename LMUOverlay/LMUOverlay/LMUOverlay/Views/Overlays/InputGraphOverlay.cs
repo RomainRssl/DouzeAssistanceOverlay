@@ -36,8 +36,8 @@ namespace LMUOverlay.Views.Overlays
         private readonly Queue<InputData> _history = new();
         private const double GH = 60;
 
-        // Dynamic history length: HistorySeconds × 30 Hz (default update rate)
-        private int CurrentMaxHistory => Math.Max(30, _cfg.HistorySeconds * 30);
+        // Historique dynamique : 1 point tous les 3 px → agrandir la fenêtre = voir plus d'historique
+        private int CurrentMaxHistory => Math.Max(30, (int)(CanvasWidth / 3.0));
 
         // Canvas width read at draw time so the graph fills whatever window width the user set
         private double CanvasWidth => _graphCanvas.ActualWidth > 10 ? _graphCanvas.ActualWidth : 180;
@@ -197,7 +197,7 @@ namespace LMUOverlay.Views.Overlays
             ApplyVisibility();
         }
 
-        private void ApplyVisibility()
+        public void ApplyVisibility()
         {
             _gearPanel.Visibility = _cfg.ShowGear ? Visibility.Visible : Visibility.Collapsed;
             _barsPanel.Visibility = (_cfg.ShowBars && (_cfg.ShowThrottle || _cfg.ShowBrake || _cfg.ShowClutch)) ? Visibility.Visible : Visibility.Collapsed;

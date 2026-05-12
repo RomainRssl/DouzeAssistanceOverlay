@@ -144,6 +144,7 @@ namespace LMUOverlay.Services
             Reg("Compteur",             () => new CompteurOverlay(_dataService, _config.Compteur));
             Reg("Clock",                () => new ClockOverlay(_dataService, _config.Clock));
             Reg("TwitchChat",           () => new TwitchChatOverlay(_dataService, _config.TwitchChat, _twitchChatService, _config));
+            Reg("PitDistance",          () => new PitDistanceOverlay(_dataService, _config.PitDistance, _config.PitDistanceConfig));
 
             _initialized = true;
             App.WriteCrashLog("[OVERLAY] all overlays created\n");

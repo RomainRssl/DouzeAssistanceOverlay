@@ -41,8 +41,8 @@ echo.
 :: Étape 1 : Mettre à jour la version dans le .csproj
 :: ============================================================
 echo [1/5] Mise a jour version dans .csproj ^(v!CURRENT_VERSION! -^> v!VERSION!^)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$c = Get-Content -Path '%CSPROJ%' -Raw; $c = $c -replace '<Version>[^<]*</Version>', '<Version>!VERSION!</Version>'; Set-Content -Path '%CSPROJ%' -Value $c -NoNewline"
-if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1 & pause & exit /b 1 )
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=(Get-Item '%CSPROJ%').FullName; $c=[IO.File]::ReadAllText($f); $n=$c -replace '<Version>[^<]+</Version>','<Version>!VERSION!</Version>'; [IO.File]::WriteAllText($f,$n,[Text.Encoding]::UTF8); if($n -notmatch [regex]::Escape('<Version>!VERSION!</Version>')){Write-Error 'Version non mise a jour'; exit 1}"
+if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1 ^(tag Version introuvable dans .csproj^) & pause & exit /b 1 )
 echo      OK
 echo.
 

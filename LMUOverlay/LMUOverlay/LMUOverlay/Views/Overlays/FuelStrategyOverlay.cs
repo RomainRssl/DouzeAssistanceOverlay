@@ -264,7 +264,7 @@ namespace LMUOverlay.Views.Overlays
             });
 
             // ── DISTANCE ENTRÉE PIT ──────────────────────────────────────────
-            var (distToPit, pitState, inPits) = DataService.GetPitDistanceData();
+            var (distToPit, _, pitState, inPits) = DataService.GetPitDistanceData();
             bool showPitDist = inPits || pitState >= 1 || (distToPit > 0 && distToPit <= PIT_SHOW_DIST);
             _pitDistRow.Visibility = showPitDist ? Visibility.Visible : Visibility.Collapsed;
             if (showPitDist)

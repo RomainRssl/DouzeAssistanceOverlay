@@ -33,8 +33,9 @@ namespace LMUOverlay.Models
         public OverlaySettings Rejoin { get; set; } = new("Retour en Piste", false);
         public OverlaySettings Note { get; set; } = new("Note", false);
         public OverlaySettings Compteur { get; set; } = new("Compteur", false);
-        public OverlaySettings Clock      { get; set; } = new("Horloge", false);
-        public OverlaySettings TwitchChat { get; set; } = new("Tchat Twitch", false);
+        public OverlaySettings Clock        { get; set; } = new("Horloge", false);
+        public OverlaySettings TwitchChat   { get; set; } = new("Tchat Twitch", false);
+        public OverlaySettings PitDistance  { get; set; } = new("Distance Stands", false);
 
         public TwitchSettings Twitch { get; set; } = new();
 
@@ -44,7 +45,8 @@ namespace LMUOverlay.Models
         public StandingsDisplayConfig StandingsDisplay { get; set; } = new();
         public DashboardDisplayConfig DashboardConfig { get; set; } = new();
         public InputDisplayConfig InputConfig { get; set; } = new();
-        public RelativeConfig RelativeConfig { get; set; } = new();
+        public RelativeConfig     RelativeConfig     { get; set; } = new();
+        public PitDistanceConfig  PitDistanceConfig  { get; set; } = new();
 
         // Thème actif (nom de fichier sans extension dans themes/)
         public string ActiveThemeName { get; set; } = "endurance-noir";
@@ -934,6 +936,16 @@ namespace LMUOverlay.Models
     {
         public int AheadCount { get; set; } = 5;
         public int BehindCount { get; set; } = 5;
+    }
+
+    public class PitDistanceConfig
+    {
+        /// <summary>
+        /// Quand true, l'overlay se cache automatiquement tant qu'aucun pit n'est demandé
+        /// et réapparaît dès que mPitState >= 1 (demande, entrée, box, sortie).
+        /// Quand false, l'overlay reste toujours visible.
+        /// </summary>
+        public bool AutoShowOnPitRequest { get; set; } = true;
     }
 
     // ========================================================================

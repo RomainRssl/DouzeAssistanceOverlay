@@ -60,6 +60,12 @@ namespace LMUOverlay.Services
         private readonly Dictionary<int, (double relX, double relZ)> _smoothedRadarPos = new();
         private const double RADAR_ALPHA = 0.40; // blend toward new pos per frame (~30 Hz → smooth but responsive)
 
+        // Pit entry distance learning — learned from mInPits 0→1 transition (not mPitLapDist which is the stall)
+        // Key = track name; Value = lap distance (m) at which the car crossed the pit entry line
+        private readonly Dictionary<string, double> _learnedPitEntry = new();
+        private bool _prevInPits = false;
+        private string _prevTrackForPit = "";
+
         public DataService(SharedMemoryReader reader) { _reader = reader; }
 
         // ====================================================================
@@ -1142,37 +1148,99 @@ namespace LMUOverlay.Services
         }
 
         /// <summary>
-        /// Retourne la distance entre la voiture du joueur et l'entrée de la voie des stands.
-        /// DistanceToPit  : mètres restants avant l'entrée des pits (0 si déjà dans les pits).
-        /// PitState       : 0=Aucun, 1=Demandé, 2=Entrée, 3=Arrêté, 4=Sortie.
-        /// InPits         : true si la voiture est actuellement dans la pit lane.
+        /// Retourne la distance entre la voiture du joueur et les stands.
+        /// DistanceToPitEntry : mètres avant la ligne des 60 km/h (entrée pit lane).
+        /// DistanceToPitStall : mètres avant le box (mPitLapDist, référence rF2).
+        /// PitState           : 0=Aucun, 1=Demandé, 2=Entrée, 3=Arrêté, 4=Sortie.
+        /// InPits             : true si la voiture est actuellement dans la pit lane.
+        ///
+        /// L'entrée est apprise lors de la première transition mInPits 0→1.
+        /// Fallback entrée : mPitLapDist − 200 m (jusqu'à l'apprentissage).
         /// </summary>
-        public (double DistanceToPit, byte PitState, bool InPits) GetPitDistanceData()
+        public (double DistanceToPitEntry, double DistanceToPitStall, byte PitState, bool InPits) GetPitDistanceData()
         {
-            if (!_reader.IsConnected) return (0, 0, false);
+            if (!_reader.IsConnected) return (0, 0, 0, false);
             var ps = _reader.GetPlayerScoring();
-            if (!ps.HasValue) return (0, 0, false);
+            if (!ps.HasValue) return (0, 0, 0, false);
 
             var  v          = ps.Value;
             bool inPits     = v.mInPits != 0;
             byte pitState   = v.mPitState;
             double trackLen = _reader.ScoringInfo.mLapDist;
+            string trackName = rF2Helper.Str(_reader.ScoringInfo.mTrackName);
 
-            if (inPits || trackLen <= 0)
-                return (0, pitState, inPits);
+            // ---- Apprentissage : détecter la transition mInPits 0 → 1 ----
+            // On enregistre mLapDist au moment exact où la voiture entre dans la pit lane.
+            // On efface le cache si le circuit change (entre deux sessions).
+            if (trackName != _prevTrackForPit)
+            {
+                _prevTrackForPit = trackName;
+                _prevInPits = inPits; // initialise sans déclencher de fausse transition
+            }
+            else if (!_prevInPits && inPits && v.mLapDist > 0 && trackLen > 0)
+            {
+                // Transition 0→1 : on apprend la position d'entrée des stands
+                // On ne remplace une valeur déjà apprise que si la nouvelle est cohérente
+                // (≤ mPitLapDist afin d'éviter un enregistrement sur la sortie des stands)
+                double newEntry = v.mLapDist;
+                if (!_learnedPitEntry.TryGetValue(trackName, out double existing) ||
+                    (v.mPitLapDist > 0 && newEntry <= v.mPitLapDist))
+                {
+                    _learnedPitEntry[trackName] = newEntry;
+                }
+            }
+            _prevInPits = inPits;
 
-            // mPitLapDist can be 0 or negative on some tracks — treat as unknown
-            if (v.mPitLapDist <= 0)
-                return (0, pitState, inPits);
+            if (trackLen <= 0)
+                return (0, 0, pitState, inPits);
 
-            double dist = v.mPitLapDist - v.mLapDist;
-            if (dist < 0) dist += trackLen;   // wraparound après la ligne S/F
+            // ---- Distance au box (stall) — calculée dans tous les cas ----
+            // Valide aussi DANS la pitlane pour afficher l'approche du box.
+            double stallDist = 0;
+            if (v.mPitLapDist > 0)
+            {
+                double raw = v.mPitLapDist - v.mLapDist;
+                if (inPits)
+                {
+                    // En pitlane : distance linéaire, pas de wraparound
+                    // raw < 0 = déjà dépassé le box, raw > 500 = suspect
+                    stallDist = (raw >= 0 && raw <= 500) ? raw : 0;
+                }
+                else
+                {
+                    if (raw < 0) raw += trackLen;
+                    stallDist = raw > trackLen * 0.90 ? 0 : raw;
+                }
+            }
+
+            // ---- Si en pitlane : entrée n'a plus de sens, on retourne directement ----
+            if (inPits)
+                return (0, stallDist, pitState, inPits);
+
+            // ---- Distance à l'entrée (hors pitlane uniquement) ----
+            double pitEntryDist;
+            if (_learnedPitEntry.TryGetValue(trackName, out double learned) && learned > 0)
+            {
+                pitEntryDist = learned;
+            }
+            else if (v.mPitLapDist > 0)
+            {
+                // Fallback : entrée ≈ box − 200 m (estimation conservatrice)
+                pitEntryDist = v.mPitLapDist - 200.0;
+                if (pitEntryDist < 0) pitEntryDist += trackLen;
+            }
+            else
+            {
+                return (0, 0, pitState, inPits);
+            }
+
+            double entryDist = pitEntryDist - v.mLapDist;
+            if (entryDist < 0) entryDist += trackLen;   // wraparound après la ligne S/F
 
             // Sanity check: if distance is more than 90% of the track, the value is suspect
-            if (dist > trackLen * 0.90)
-                return (0, pitState, inPits);
+            if (entryDist > trackLen * 0.90) entryDist = 0;
 
-            return (dist, pitState, inPits);
+            return (entryDist, stallDist, pitState, inPits);
         }
 
         /// <summary>
