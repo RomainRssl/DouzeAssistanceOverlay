@@ -41,7 +41,7 @@ echo.
 :: Étape 1 : Mettre à jour la version dans le .csproj
 :: ============================================================
 echo [1/5] Mise a jour version dans .csproj ^(v!CURRENT_VERSION! -^> v!VERSION!^)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$lt=[char]60; $gt=[char]62; $f='!CSPROJ!'; $v='!VERSION!'; $c=[IO.File]::ReadAllText($f); $tag=$lt+'Version'+$gt; $etag=$lt+'/Version'+$gt; $n=[regex]::Replace($c,$tag+'[^'+$lt+']*'+$etag,$tag+$v+$etag); [IO.File]::WriteAllText($f,$n,[Text.Encoding]::UTF8); $check=[IO.File]::ReadAllText($f); if($check -notmatch ($tag+[regex]::Escape($v)+$etag)){ Write-Error 'Version non mise a jour'; exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$lt=[char]60; $gt=[char]62; $f='!CSPROJ!'; $v='!VERSION!'; $c=[IO.File]::ReadAllText($f); $tag=$lt+'Version'+$gt; $etag=$lt+'/Version'+$gt; $n=[regex]::Replace($c,$tag+'.*?'+$etag,$tag+$v+$etag); [IO.File]::WriteAllText($f,$n,[Text.Encoding]::UTF8); $check=[IO.File]::ReadAllText($f); if($check -notmatch ($tag+[regex]::Escape($v)+$etag)){ Write-Error 'Version non mise a jour'; exit 1 }"
 if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1 & pause & exit /b 1 )
 echo      OK
 echo.
