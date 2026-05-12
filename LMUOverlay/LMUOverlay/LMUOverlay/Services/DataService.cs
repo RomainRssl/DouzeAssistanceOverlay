@@ -1202,9 +1202,10 @@ namespace LMUOverlay.Services
                 double raw = v.mPitLapDist - v.mLapDist;
                 if (inPits)
                 {
-                    // En pitlane : distance linéaire, pas de wraparound
-                    // raw < 0 = déjà dépassé le box ; cap à 3000 m (aucun pit lane réel n'est plus long)
-                    stallDist = (raw >= 0 && raw <= 3000) ? raw : 0;
+                    // En pitlane : wrap-around nécessaire si mLapDist a franchi la ligne S/F
+                    // pendant que mPitLapDist reste sur le tour précédent (raw négatif ou > trackLen)
+                    if (raw < 0) raw += trackLen;
+                    stallDist = (raw > 0 && raw <= 3000) ? raw : 0;
                 }
                 else
                 {
