@@ -11,9 +11,9 @@ cd /d "%~dp0"
 :: ============================================================
 
 set ISCC="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-set CSPROJ=LMUOverlay\LMUOverlay\LMUOverlay.csproj
-set PUBLISH_DIR=LMUOverlay\bin\Release\net8.0-windows\win-x64\publish
-set DIST_DIR=dist
+set CSPROJ=%~dp0LMUOverlay\LMUOverlay\LMUOverlay.csproj
+set PUBLISH_DIR=%~dp0LMUOverlay\bin\Release\net8.0-windows\win-x64\publish
+set DIST_DIR=%~dp0dist
 
 :: --- Lire la version actuelle ---
 for /f "tokens=3 delims=<>" %%v in ('findstr "<Version>" %CSPROJ%') do set CURRENT_VERSION=%%v
@@ -41,8 +41,8 @@ echo.
 :: Étape 1 : Mettre à jour la version dans le .csproj
 :: ============================================================
 echo [1/5] Mise a jour version dans .csproj ^(v!CURRENT_VERSION! -^> v!VERSION!^)...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=(Get-Item '%CSPROJ%').FullName; $c=[IO.File]::ReadAllText($f); $n=$c -replace '<Version>[^<]+</Version>','<Version>!VERSION!</Version>'; [IO.File]::WriteAllText($f,$n,[Text.Encoding]::UTF8); if($n -notmatch [regex]::Escape('<Version>!VERSION!</Version>')){Write-Error 'Version non mise a jour'; exit 1}"
-if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1 ^(tag Version introuvable dans .csproj^) & pause & exit /b 1 )
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$lt=[char]60; $gt=[char]62; $f='!CSPROJ!'; $v='!VERSION!'; $c=[IO.File]::ReadAllText($f); $tag=$lt+'Version'+$gt; $etag=$lt+'/Version'+$gt; $n=[regex]::Replace($c,$tag+'[^'+$lt+']*'+$etag,$tag+$v+$etag); [IO.File]::WriteAllText($f,$n,[Text.Encoding]::UTF8); $check=[IO.File]::ReadAllText($f); if($check -notmatch ($tag+[regex]::Escape($v)+$etag)){ Write-Error 'Version non mise a jour'; exit 1 }"
+if %ERRORLEVEL% NEQ 0 ( echo ERREUR etape 1 & pause & exit /b 1 )
 echo      OK
 echo.
 

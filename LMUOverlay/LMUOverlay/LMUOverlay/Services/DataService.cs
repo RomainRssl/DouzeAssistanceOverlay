@@ -1203,8 +1203,8 @@ namespace LMUOverlay.Services
                 if (inPits)
                 {
                     // En pitlane : distance linéaire, pas de wraparound
-                    // raw < 0 = déjà dépassé le box, raw > 500 = suspect
-                    stallDist = (raw >= 0 && raw <= 500) ? raw : 0;
+                    // raw < 0 = déjà dépassé le box ; cap à 3000 m (aucun pit lane réel n'est plus long)
+                    stallDist = (raw >= 0 && raw <= 3000) ? raw : 0;
                 }
                 else
                 {

@@ -11,7 +11,7 @@ cd /d "%~dp0"
 :: Lancer build.bat avant ce script.
 :: ============================================================
 
-set CSPROJ=LMUOverlay\LMUOverlay\LMUOverlay.csproj
+set CSPROJ=%~dp0LMUOverlay\LMUOverlay\LMUOverlay.csproj
 set GITHUB_REPO=RomainRssl/DouzeAssistanceOverlay
 
 :: --- Lire la version depuis le .csproj ---
