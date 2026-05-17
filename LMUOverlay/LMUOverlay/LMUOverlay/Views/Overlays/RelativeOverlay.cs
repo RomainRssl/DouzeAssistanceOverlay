@@ -37,6 +37,7 @@ namespace LMUOverlay.Views.Overlays
         public RelativeOverlay(DataService ds, OverlaySettings s, RelativeConfig cfg) : base(ds, s)
         {
             _cfg = cfg;
+            UseWidthOnlyResize = true; // largeur fixe, hauteur auto — pas de Viewbox (évite déformation)
 
             var border = OverlayHelper.MakeBorder();
             var sp = new StackPanel();

@@ -26,6 +26,7 @@ namespace LMUOverlay.Views.Overlays
         public StandingsOverlay(DataService ds, OverlaySettings s, StandingsColumnConfig colCfg) : base(ds, s)
         {
             _colCfg = colCfg;
+            UseWidthOnlyResize = true; // largeur fixe, hauteur auto — pas de Viewbox (évite déformation)
 
             var border = OverlayHelper.MakeBorder();
 
