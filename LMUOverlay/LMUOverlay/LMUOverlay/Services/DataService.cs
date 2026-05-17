@@ -1407,15 +1407,21 @@ namespace LMUOverlay.Services
         {
             if (!_reader.IsConnected) return new SessionInfo();
             var info = _reader.ScoringInfo;
-            string[] sessionNames = { "Test", "Practice", "Qualification", "Warmup", "Race" };
-            int sessionIdx = Math.Clamp(info.mSession, 0, sessionNames.Length - 1);
+
+            // mSession: 0=TestDay, 1-4=Practice, 5-8=Qualifying, 9=Warmup, 10-13=Race
+            int s = info.mSession;
+            string sessionName = s == 0                    ? "Test"
+                               : s >= 1 && s <= 4          ? "Practice"
+                               : s >= 5 && s <= 8          ? "Qualification"
+                               : s == 9                    ? "Warmup"
+                               : /* 10-13 */                 "Race";
 
             double elapsed = info.mCurrentET;
             double remaining = info.mEndET - info.mCurrentET;
 
             return new SessionInfo
             {
-                SessionName = sessionNames[sessionIdx],
+                SessionName = sessionName,
                 SessionTimeElapsed = elapsed,
                 SessionTimeRemaining = remaining,
                 MaxLaps = info.mMaxLaps,

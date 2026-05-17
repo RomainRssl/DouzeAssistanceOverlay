@@ -20,6 +20,9 @@ namespace LMUOverlay.Views.Overlays
         private static FontFamily _consolas => OverlayHelper.FontConsolas;
         private int _lastDataHash = 0;
 
+        // Live session time — updated every frame without rebuilding the whole panel
+        private TextBlock? _sessionTimeText;
+
         public StandingsOverlay(DataService ds, OverlaySettings s, StandingsColumnConfig colCfg) : base(ds, s)
         {
             _colCfg = colCfg;
@@ -36,11 +39,19 @@ namespace LMUOverlay.Views.Overlays
             var all = DataService.GetAllVehicles();
             if (all.Count == 0) return;
 
+            // Live update of session time — no panel rebuild needed
+            if (_sessionTimeText != null)
+            {
+                var si = DataService.GetSessionInfo();
+                _sessionTimeText.Text = FormatTimeRemaining(si.SessionTimeRemaining, si.MaxLaps);
+            }
+
             int hash = ComputeStandingsHash(all);
             if (hash == _lastDataHash) return;
             _lastDataHash = hash;
 
             _mainPanel.Children.Clear();
+            _sessionTimeText = null; // will be rebuilt below if ShowSessionInfo
 
             if (_colCfg.ShowSessionInfo)
                 _mainPanel.Children.Add(BuildSessionBar());
@@ -94,16 +105,86 @@ namespace LMUOverlay.Views.Overlays
 
         private UIElement BuildSessionBar()
         {
+            var session = DataService.GetSessionInfo();
             var weather = DataService.GetWeatherData();
-            var b  = new Border { Background = BrushCache.Get(OverlayHelper.BgCell), Padding = new Thickness(4, 2, 4, 2), Margin = new Thickness(0, 0, 0, 1) };
-            var sp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            var tm      = ThemeManager.Current;
+
+            var b  = new Border { Background = BrushCache.Get(OverlayHelper.BgCell), Padding = new Thickness(5, 3, 5, 3), Margin = new Thickness(0, 0, 0, 1) };
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+
+            // ── Badge type de session ─────────────────────────────────────
+            string label = session.SessionName switch
+            {
+                "Test"          => "TEST",
+                "Practice"      => "EL",
+                "Qualification" => "QUALIF",
+                "Warmup"        => "WARM",
+                "Race"          => "COURSE",
+                _               => session.SessionName.ToUpperInvariant()
+            };
+            Color badgeCol = session.SessionName switch
+            {
+                "Practice" or "Test" => Color.FromRgb(20,  90, 160),
+                "Qualification"      => Color.FromRgb(140, 85,  0),
+                "Race"               => Color.FromRgb(160, 25, 25),
+                _                    => Color.FromRgb(50,  70, 80)
+            };
+            var badge = new Border
+            {
+                Background        = BrushCache.Get(badgeCol),
+                CornerRadius      = new CornerRadius(3),
+                Padding           = new Thickness(5, 1, 5, 1),
+                Margin            = new Thickness(0, 0, 7, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child             = new TextBlock
+                {
+                    Text       = label,
+                    FontSize   = FS,
+                    FontWeight = FontWeights.Bold,
+                    FontFamily = _consolas,
+                    Foreground = Brushes.White
+                }
+            };
+            sp.Children.Add(badge);
+
+            // ── Temps restant ─────────────────────────────────────────────
+            _sessionTimeText = new TextBlock
+            {
+                Text              = FormatTimeRemaining(session.SessionTimeRemaining, session.MaxLaps),
+                FontSize          = FS + 1,
+                FontWeight        = FontWeights.Bold,
+                FontFamily        = _consolas,
+                Foreground        = BrushCache.Get(session.SessionTimeRemaining > 0 && session.SessionTimeRemaining < 300
+                                        ? tm.StateWarn   // rouge/orange dans les 5 dernières minutes
+                                        : tm.TextPrimary),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin            = new Thickness(0, 0, 7, 0)
+            };
+            sp.Children.Add(_sessionTimeText);
+
+            // ── Météo ─────────────────────────────────────────────────────
             if (weather != null)
             {
                 string wet = weather.Raining > 0.1 ? "Wet" : "Dry";
-                sp.Children.Add(T($"☁ {wet}  {weather.AmbientTemp:F0}/{weather.TrackTemp:F0}°", FS, BrushCache.Get(ThemeManager.Current.TextSecondary)));
+                sp.Children.Add(T($"☁ {wet}  {weather.AmbientTemp:F0}/{weather.TrackTemp:F0}°", FS, BrushCache.Get(tm.TextSecondary)));
             }
+
             b.Child = sp;
             return b;
+        }
+
+        // ── Helpers session ───────────────────────────────────────────────
+
+        private static string FormatTimeRemaining(double seconds, int maxLaps = 0)
+        {
+            if (seconds <= 0)
+                return maxLaps > 0 ? $"∞ ({maxLaps}t)" : "--:--";
+            if (seconds > 86400 * 2) // > 48h : session basée sur les tours
+                return maxLaps > 0 ? $"{maxLaps}t" : "∞";
+            var ts = TimeSpan.FromSeconds(Math.Ceiling(seconds));
+            return ts.TotalHours >= 1
+                ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+                : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
         }
 
         // ================================================================
