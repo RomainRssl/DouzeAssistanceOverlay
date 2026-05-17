@@ -11,7 +11,7 @@
     <AssemblyName>DouzeAssistance</AssemblyName>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <Description>Douze Assistance — Le Mans Ultimate Overlay</Description>
-    <Version>2.2.8</Version>
+    <Version>2.2.9</Version>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
   </PropertyGroup>
