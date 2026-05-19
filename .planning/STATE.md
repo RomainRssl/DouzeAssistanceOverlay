@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md — edit mode toggle, snap-to-grid drag, OverlayEditBar wired, human-verified approved
-last_updated: "2026-05-19T17:30:00.000Z"
-last_activity: 2026-05-19 — Phase 2 plan 02-02 complete; edit mode toggle, snap drag, OverlayEditBar implemented and human-verified
+stopped_at: Completed 02-04-PLAN.md — independent 2D/VR layout profiles, VrProfileHelper, IsVRModeActive routing, human-verified approved
+last_updated: "2026-05-19T16:25:58.708Z"
+last_activity: 2026-05-19 — Phase 2 complete; all 4 plans done (edit mode, themes, VR profiles); ready for Phase 3
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 10
   percent: 100
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 ## Current Position
 
 Phase: 2 of 3 (UI Customization)
-Plan: 2 of 4 in current phase (02-02 complete — 02-03 and 02-04 remaining)
+Plan: 4 of 4 in current phase (02-04 complete — Phase 2 fully done)
 Status: Executing
-Last activity: 2026-05-19 — 02-02 complete; edit mode, snap drag, colored border, OverlayEditBar implemented and human-verified
+Last activity: 2026-05-19 — Phase 2 complete; all 4 plans done (edit mode, themes, VR profiles); ready for Phase 3
 
-Progress: [████████░░] 80% (Phase 2 in progress)
+Progress: [██████████] 100% (Phase 2 complete)
 
 ## Performance Metrics
 
@@ -90,6 +90,10 @@ Recent decisions affecting current work:
 - [Plan 02-02]: OverlayFocused as static event on BaseOverlayWindow — avoids circular reference between overlay windows and MainWindow; MainWindow subscribes, OverlayEditBar shown from there
 - [Plan 02-02]: OverlayEditBar single shared instance with Closing+=Cancel+Collapse — eliminates Window creation overhead when clicking between overlays in edit mode
 - [Plan 02-02]: SetAllLocked called only from OnToggleLock and startup init — no session or race event auto-locks overlays; edit mode persists until explicit user action
+- [Phase 02-ui-customization]: VrProfileHelper pure static class — no WPF dependency enables unit testing all profile logic without a UI harness
+- [Phase 02-ui-customization]: ApplyVrProfile writes to WPF window Left/Top directly — 2D Settings fields preserved intact so Apply2dProfile can restore without backup
+- [Phase 02-ui-customization]: IsVRModeActive static property on BaseOverlayWindow — avoids circular reference with OverlayManager, visible to all overlay subclasses
+- [Phase 02-ui-customization]: Nullable double? for VR fields — Newtonsoft.Json deserializes missing JSON keys to null, zero migration risk for old config.json
 
 ### Roadmap Evolution
 
@@ -105,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-19T16:13:07.298Z
-Stopped at: Completed 02-03-PLAN.md — 3 preset themes deployed at startup, ThemeManager extended with EnsurePresetThemesExist
+Last session: 2026-05-19T18:30:00.000Z
+Stopped at: Completed 02-04-PLAN.md — independent 2D/VR layout profiles, VrProfileHelper, IsVRModeActive routing, human-verified approved
 Resume file: None

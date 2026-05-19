@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Fuel Strategy Correctness** - Fix race-end prediction for multi-class and SC lap filtering
 - [x] **Phase 01.1: Render tech evaluation (INSERTED)** - WPF vs SkiaSharp PoC on ProximityRadarOverlay — unblocks Phase 2 (completed 2026-05-19)
-- [ ] **Phase 2: UI Customization** - Drag, resize, themes, and 2D/VR layout profiles
+- [x] **Phase 2: UI Customization** - Drag, resize, themes, and 2D/VR layout profiles (completed 2026-05-19)
 
 ## Phase Details
 
@@ -72,4 +72,4 @@ Phases execute in numeric order: 1 → 01.1 → 2
 |-------|----------------|--------|-----------|
 | 1. Fuel Strategy Correctness | 3/3 | Complete | 2026-05-19 |
 | 01.1. Render Tech Evaluation | 3/3 | Complete    | 2026-05-19 |
-| 2. UI Customization | 3/4 | In Progress|  |
+| 2. UI Customization | 4/4 | Complete   | 2026-05-19 |
