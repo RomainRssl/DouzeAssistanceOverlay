@@ -13,10 +13,10 @@
 
 ### UI Customization
 
-- [ ] **UI-01**: L'utilisateur peut repositionner chaque panneau overlay par drag & drop pendant une session de configuration
-- [ ] **UI-02**: L'utilisateur peut redimensionner librement chaque panneau overlay (largeur et hauteur)
-- [ ] **UI-03**: L'utilisateur peut choisir parmi plusieurs themes visuels (au minimum : dark actuel + 2 nouveaux themes)
-- [ ] **UI-04**: Les positions et tailles des panneaux sont sauvegardees dans des profils separes pour l'affichage 2D (ecran) et VR
+- [x] **UI-01**: L'utilisateur peut repositionner chaque panneau overlay par drag & drop pendant une session de configuration
+- [x] **UI-02**: L'utilisateur peut redimensionner librement chaque panneau overlay (largeur et hauteur)
+- [x] **UI-03**: L'utilisateur peut choisir parmi plusieurs themes visuels (au minimum : dark actuel + 2 nouveaux themes)
+- [x] **UI-04**: Les positions et tailles des panneaux sont sauvegardees dans des profils separes pour l'affichage 2D (ecran) et VR
 
 ## v2 Requirements
 
@@ -53,10 +53,10 @@
 | FUEL-02 | Phase 1 — Fuel Strategy Correctness | Complete |
 | FUEL-03 | Phase 1 — Fuel Strategy Correctness | Complete |
 | VR-01 | Phase 01.1 — Render Tech Evaluation | Complete |
-| UI-01 | Phase 2 — UI Customization | Pending |
-| UI-02 | Phase 2 — UI Customization | Pending |
-| UI-03 | Phase 2 — UI Customization | Pending |
-| UI-04 | Phase 2 — UI Customization | Pending |
+| UI-01 | Phase 2 — UI Customization | Complete |
+| UI-02 | Phase 2 — UI Customization | Complete |
+| UI-03 | Phase 2 — UI Customization | Complete |
+| UI-04 | Phase 2 — UI Customization | Complete |
 
 **Coverage:**
 - v1 requirements: 7 total

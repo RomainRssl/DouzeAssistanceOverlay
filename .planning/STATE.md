@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01.1-03-PLAN.md — Phase 01.1 complete, Phase 2 unblocked
-last_updated: "2026-05-19T14:22:00.127Z"
+stopped_at: Completed 02-01-PLAN.md — Phase 2 test scaffolding complete, 21 RED tests across 4 UI test files
+last_updated: "2026-05-19T16:03:03.076Z"
 last_activity: 2026-05-19 — Phase 1 complete; FUEL-01, FUEL-02, FUEL-03 all fixed; 7/7 Category=Fuel tests green
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 10
+  completed_plans: 7
   percent: 100
 ---
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100% (Phase 1)
 | Phase 01.1-render-tech-evaluation P02 | 3min | 2 tasks | 2 files |
 | Phase 01.1-render-tech-evaluation P03 | 3min | 1 tasks | 1 files |
 | Phase 01.1-render-tech-evaluation P03 | 5min | 2 tasks | 2 files |
+| Phase 02-ui-customization P01 | 2min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 01.1-render-tech-evaluation]: Phase 2 proceeds in WPF — BaseOverlayWindow already implements drag, resize, themes, 2D/VR profiles; no render change needed for UI-01 through UI-04
 - [Phase 01.1-render-tech-evaluation]: SkiaSharp deferred to VR-02 — only adopt if live session shows >= 20% avg frame-time improvement over WPF baseline
 - [Phase 01.1-render-tech-evaluation]: RECOMMENDATION.md approved by Romain — Phase 2 proceeds in WPF, SkiaSharp deferred to VR-02 pending live frame-time data
+- [Phase 02-ui-customization]: VrProfileTests covers 6 tests (4 drag + 2 resize via SaveResizeResult) for full VR/2D separation
+- [Phase 02-ui-customization]: ThemePresetTests uses IDisposable temp directory for hermetic test isolation (not %AppData%)
+- [Phase 02-ui-customization]: ColorOverrideTests reads/writes via existing CustomOptions dictionary — no new OverlaySettings field needed for test scaffold
 
 ### Roadmap Evolution
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-19T14:00:03.108Z
-Stopped at: Completed 01.1-03-PLAN.md — Phase 01.1 complete, Phase 2 unblocked
+Last session: 2026-05-19T16:03:03.073Z
+Stopped at: Completed 02-01-PLAN.md — Phase 2 test scaffolding complete, 21 RED tests across 4 UI test files
 Resume file: None
