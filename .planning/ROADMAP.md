@@ -26,12 +26,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Laps driven behind Safety Car or VSC are excluded from the per-lap consumption average shown in the panel
   3. The driver can set a configurable safety margin (default 1 lap) in settings, and that margin is visibly reflected in the fuel-to-add figure
   4. The fuel panel shows a correct value from lap 1 of a multi-class race (no need to wait for a pit stop cycle to get a valid reading)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Refactor `RaceLapsRemaining` in DataService to use global leader position
-- [ ] 01-02: Add SC/VSC lap detection and filter laps from consumption rolling average
-- [ ] 01-03: Add configurable safety margin to FuelStrategyPanel and persist in config JSON
+- [ ] 01-01-PLAN.md — xUnit test infrastructure + FuelStrategyCalculator extraction (Wave 0)
+- [ ] 01-02-PLAN.md — Fix FUEL-01 (leader laps) + FUEL-02 (SC exclusion) in DataService (Wave 1)
+- [ ] 01-03-PLAN.md — Fix FUEL-03 (configurable safety margin): config class, DataService wiring, settings slider (Wave 2)
 
 ### Phase 2: UI Customization
 **Goal**: The driver can arrange, size, and theme every overlay panel freely, with separate layout profiles saved for 2D screen and VR
