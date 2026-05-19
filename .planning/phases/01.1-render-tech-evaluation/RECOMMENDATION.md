@@ -1,7 +1,7 @@
 # Render Tech Recommendation — Phase 01.1
 
 **Date:** 2026-05-19
-**Status:** DRAFT — awaiting human approval
+**Status:** APPROVED — 2026-05-19
 
 ## Summary
 
@@ -107,4 +107,4 @@ Both code paths are now deployed and instrumented. The VR-01 PoC is **structural
 ---
 *Phase 01.1 — Render Tech Evaluation*
 *Produced by: Claude (plan 01.1-03)*
-*Approved by: [user name — filled at checkpoint]*
+*Approved by: Romain (2026-05-19)*
