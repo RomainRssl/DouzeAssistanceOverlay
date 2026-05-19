@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-03-PLAN.md — 3 preset themes deployed at startup, ThemeManager extended with EnsurePresetThemesExist
-last_updated: "2026-05-19T16:13:07.300Z"
-last_activity: 2026-05-19 — Phase 1 complete; FUEL-01, FUEL-02, FUEL-03 all fixed; 7/7 Category=Fuel tests green
+stopped_at: Completed 02-02-PLAN.md — edit mode toggle, snap-to-grid drag, OverlayEditBar wired, human-verified approved
+last_updated: "2026-05-19T17:30:00.000Z"
+last_activity: 2026-05-19 — Phase 2 plan 02-02 complete; edit mode toggle, snap drag, OverlayEditBar implemented and human-verified
 progress:
   total_phases: 3
   completed_phases: 2
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 1 of 2 (Fuel Strategy Correctness)
-Plan: 3 of 3 in current phase (all plans complete — Phase 1 done)
+Phase: 2 of 3 (UI Customization)
+Plan: 2 of 4 in current phase (02-02 complete — 02-03 and 02-04 remaining)
 Status: Executing
-Last activity: 2026-05-19 — Phase 1 complete; FUEL-01, FUEL-02, FUEL-03 all fixed; 7/7 Category=Fuel tests green
+Last activity: 2026-05-19 — 02-02 complete; edit mode, snap drag, colored border, OverlayEditBar implemented and human-verified
 
-Progress: [██████████] 100% (Phase 1)
+Progress: [████████░░] 80% (Phase 2 in progress)
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100% (Phase 1)
 | Phase 01.1-render-tech-evaluation P03 | 5min | 2 tasks | 2 files |
 | Phase 02-ui-customization P01 | 2min | 2 tasks | 4 files |
 | Phase 02-ui-customization P03 | 15min | 2 tasks | 2 files |
+| Phase 02-ui-customization P02 | 45min | 4 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,10 @@ Recent decisions affecting current work:
 - [Phase 02-ui-customization]: ThemePresetTests uses IDisposable temp directory for hermetic test isolation (not %AppData%)
 - [Phase 02-ui-customization]: ColorOverrideTests reads/writes via existing CustomOptions dictionary — no new OverlaySettings field needed for test scaffold
 - [Phase 02-ui-customization]: Preset JSON uses nested colors/effects sections matching ApplyJson() parser — plan reference flat JSON was inaccurate; EnsurePresetThemesExistIn(dir) testable overload pattern enables hermetic test isolation without %AppData%
+- [Plan 02-02]: Raw accumulation + snap display: _rawDragLeft/_rawDragTop track true float position; only Left/Top display are snapped — prevents drift from repeated rounding of small integer mouse deltas
+- [Plan 02-02]: OverlayFocused as static event on BaseOverlayWindow — avoids circular reference between overlay windows and MainWindow; MainWindow subscribes, OverlayEditBar shown from there
+- [Plan 02-02]: OverlayEditBar single shared instance with Closing+=Cancel+Collapse — eliminates Window creation overhead when clicking between overlays in edit mode
+- [Plan 02-02]: SetAllLocked called only from OnToggleLock and startup init — no session or race event auto-locks overlays; edit mode persists until explicit user action
 
 ### Roadmap Evolution
 
