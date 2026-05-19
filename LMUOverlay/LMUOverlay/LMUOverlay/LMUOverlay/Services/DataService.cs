@@ -38,6 +38,7 @@ namespace LMUOverlay.Services
         private int _trackedLap = -1;
         private bool _wasInPitsThisLap;
         private bool _wasLapInvalidThisLap;
+        private bool _wasSlowPhaseThisLap;
 
         // Stint tracking (par véhicule)
         private readonly Dictionary<int, int>    _prevPitstops   = new();
@@ -642,6 +643,7 @@ namespace LMUOverlay.Services
 
             var tel = pt.Value;
             var scr = ps.Value;
+            var info = _reader.ScoringInfo;
 
             double V_actuel = tel.mFuel;
             double E_raw = tel.mBatteryChargeFraction * 100;
@@ -666,12 +668,13 @@ namespace LMUOverlay.Services
 
             // Track anomalies
             if (scr.mInPits != 0) _wasInPitsThisLap = true;
+            if (info.mYellowFlagState >= 0) _wasSlowPhaseThisLap = true;
 
             // Lap completion trigger
             int currentLap = scr.mTotalLaps;
             if (currentLap > _trackedLap && _trackedLap >= 0)
             {
-                bool isValid = !_wasInPitsThisLap && !_wasLapInvalidThisLap;
+                bool isValid = !_wasInPitsThisLap && !_wasLapInvalidThisLap && !_wasSlowPhaseThisLap;
 
                 // FUEL sample
                 if (_fuelAtStartOfLap > 0 && isValid)
@@ -724,6 +727,7 @@ namespace LMUOverlay.Services
                 _energyDeployedThisLap = 0;
                 _wasInPitsThisLap = scr.mInPits != 0;
                 _wasLapInvalidThisLap = false;
+                _wasSlowPhaseThisLap = info.mYellowFlagState >= 0;  // carry over if SC still active at lap crossing
             }
 
             if (_trackedLap < 0)
