@@ -13,6 +13,7 @@ Two focused delivery phases. Phase 1 corrects the fuel strategy math — the cor
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Fuel Strategy Correctness** - Fix race-end prediction for multi-class and SC lap filtering
+- [ ] **Phase 01.1: Render tech evaluation (INSERTED)** - WPF vs SkiaSharp PoC on ProximityRadarOverlay — unblocks Phase 2
 - [ ] **Phase 2: UI Customization** - Drag, resize, themes, and 2D/VR layout profiles
 
 ## Phase Details
@@ -35,17 +36,19 @@ Plans:
 
 ### Phase 01.1: Render tech evaluation (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Evaluate WPF vs SkiaSharp 3.119.2 + D3D11 backend for overlay rendering — produce a PoC on ProximityRadarOverlay with frame-time measurements and a written recommendation that unblocks Phase 2
+**Requirements**: VR-01
 **Depends on:** Phase 1
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 01.1 to break down)
+- [ ] 01.1-01-PLAN.md — Fix OpenXRService allocation bug + WPF baseline frame-time instrumentation on ProximityRadarOverlay (Wave 1)
+- [ ] 01.1-02-PLAN.md — Implement ProximityRadarSkiaOverlay (SKElement PoC) + frame-time measurement (Wave 2)
+- [ ] 01.1-03-PLAN.md — Write RECOMMENDATION.md with scored options; human approval checkpoint (Wave 3)
 
 ### Phase 2: UI Customization
 **Goal**: The driver can arrange, size, and theme every overlay panel freely, with separate layout profiles saved for 2D screen and VR
-**Depends on**: Phase 1
+**Depends on**: Phase 1, Phase 01.1
 **Requirements**: UI-01, UI-02, UI-03, UI-04
 **Success Criteria** (what must be TRUE):
   1. The driver can drag any overlay panel to a new screen position during a configuration session and the panel stays there on next launch
@@ -63,9 +66,10 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2
+Phases execute in numeric order: 1 → 01.1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Fuel Strategy Correctness | 3/3 | Complete | 2026-05-19 |
+| 01.1. Render Tech Evaluation | 0/3 | Not started | - |
 | 2. UI Customization | 0/4 | Not started | - |
