@@ -16,7 +16,8 @@ namespace LMUOverlay.Views
         private readonly OverlayManager _overlayManager;
         private readonly ProfileService _profileService = new();
         private readonly CsvExportService _csvExportService = new();
-        private bool _isLocked;
+        private bool _isLocked = true;  // overlays start locked; unlocked by explicit user action only
+        private readonly OverlayEditBar _editBar = new OverlayEditBar();
 
         private readonly List<(string Key, string Name, OverlaySettings Settings)> _allOverlays;
         private HotkeyService? _hotkeyService;
@@ -72,6 +73,14 @@ namespace LMUOverlay.Views
 
             App.WriteCrashLog("[INIT] OverlayManager.Initialize\n");
             _overlayManager.Initialize();
+            // Guarantee all overlays start locked, regardless of what was saved in config
+            _overlayManager.SetAllLocked(true);
+
+            // Wire OverlayEditBar: show it when user clicks an overlay in edit mode
+            BaseOverlayWindow.OverlayFocused += overlay =>
+            {
+                Dispatcher.Invoke(() => _editBar.AttachTo(overlay));
+            };
 
             App.WriteCrashLog("[INIT] VoicePanel\n");
             VoicePanel.Initialize(_config.General, _overlayManager.VoiceService,
@@ -954,8 +963,11 @@ namespace LMUOverlay.Views
         {
             _isLocked = !_isLocked;
             _overlayManager.SetAllLocked(_isLocked);
-            BtnLock.Content = _isLocked ? "🔓 UNLOCK" : "🔒 LOCK";
+            // When locked: button says "DÉVERROUILLER TOUT" (click to unlock)
+            // When unlocked: button says "VERROUILLER TOUT" (click to lock)
+            BtnLock.Content = _isLocked ? "DÉVERROUILLER TOUT" : "VERROUILLER TOUT";
             SetActive(BtnLock, _isLocked);
+            if (_isLocked) _editBar.Detach();
         }
 
         private void OnToggleHideMenus(object s, RoutedEventArgs e)
@@ -1098,6 +1110,7 @@ namespace LMUOverlay.Views
 
         protected override void OnClosed(EventArgs e)
         {
+            _editBar.Detach();
             _hotkeyService?.Dispose();
             _configService.Save(_config);
             _overlayManager.Dispose();
