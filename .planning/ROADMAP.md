@@ -55,13 +55,13 @@ Plans:
   2. The driver can resize any panel by dragging its edges or corners, and the resized dimensions persist across sessions
   3. The driver can select from at least three visual themes (dark current + 2 new) and the selected theme applies instantly to all panels without restart
   4. Repositioning or resizing panels in 2D mode does not alter the saved VR layout, and vice versa — the two profiles are independent
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: Implement drag-to-reposition on BaseOverlayWindow with position persistence
-- [ ] 02-02: Implement free resize on BaseOverlayWindow with dimension persistence
-- [ ] 02-03: Add two new visual themes to ThemeManager; expose theme selector in settings UI
-- [ ] 02-04: Split overlay config JSON into 2D and VR profile sections; wire profile switching on mode change
+- [ ] 02-01-PLAN.md — Wave 0: 4 xUnit test stubs (SnapGridTests, VrProfileTests, ThemePresetTests, ColorOverrideTests)
+- [ ] 02-02-PLAN.md — Wave 1: Edit mode toggle, snap-to-grid drag, colored border, OverlayEditBar (UI-01, UI-02)
+- [ ] 02-03-PLAN.md — Wave 1: 3 new theme presets + EnsurePresetThemesExist startup deploy (UI-03)
+- [ ] 02-04-PLAN.md — Wave 2: VR profile fields, IsVRModeActive routing, ApplyVrProfile/Apply2dProfile (UI-04)
 
 ## Progress
 
