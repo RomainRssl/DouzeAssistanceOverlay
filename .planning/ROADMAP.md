@@ -39,7 +39,7 @@ Plans:
 **Goal:** Evaluate WPF vs SkiaSharp 3.119.2 + D3D11 backend for overlay rendering — produce a PoC on ProximityRadarOverlay with frame-time measurements and a written recommendation that unblocks Phase 2
 **Requirements**: VR-01
 **Depends on:** Phase 1
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 01.1-01-PLAN.md — Fix OpenXRService allocation bug + WPF baseline frame-time instrumentation on ProximityRadarOverlay (Wave 1)
@@ -71,5 +71,5 @@ Phases execute in numeric order: 1 → 01.1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Fuel Strategy Correctness | 3/3 | Complete | 2026-05-19 |
-| 01.1. Render Tech Evaluation | 0/3 | Not started | - |
+| 01.1. Render Tech Evaluation | 1/3 | In Progress|  |
 | 2. UI Customization | 0/4 | Not started | - |
