@@ -12,7 +12,7 @@ Two focused delivery phases. Phase 1 corrects the fuel strategy math — the cor
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Fuel Strategy Correctness** - Fix race-end prediction for multi-class and SC lap filtering
+- [x] **Phase 1: Fuel Strategy Correctness** - Fix race-end prediction for multi-class and SC lap filtering
 - [ ] **Phase 2: UI Customization** - Drag, resize, themes, and 2D/VR layout profiles
 
 ## Phase Details
@@ -29,9 +29,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — xUnit test infrastructure + FuelStrategyCalculator extraction (Wave 0)
-- [ ] 01-02-PLAN.md — Fix FUEL-01 (leader laps) + FUEL-02 (SC exclusion) in DataService (Wave 1)
-- [ ] 01-03-PLAN.md — Fix FUEL-03 (configurable safety margin): config class, DataService wiring, settings slider (Wave 2)
+- [x] 01-01-PLAN.md — xUnit test infrastructure + FuelStrategyCalculator extraction (Wave 0)
+- [x] 01-02-PLAN.md — Fix FUEL-01 (leader laps) + FUEL-02 (SC exclusion) in DataService (Wave 1)
+- [x] 01-03-PLAN.md — Fix FUEL-03 (configurable safety margin): config class, DataService wiring, settings slider (Wave 2)
 
 ### Phase 2: UI Customization
 **Goal**: The driver can arrange, size, and theme every overlay panel freely, with separate layout profiles saved for 2D screen and VR
@@ -57,5 +57,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fuel Strategy Correctness | 1/3 | In Progress|  |
+| 1. Fuel Strategy Correctness | 3/3 | Complete | 2026-05-19 |
 | 2. UI Customization | 0/4 | Not started | - |

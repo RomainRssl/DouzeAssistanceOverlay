@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Completed 01-01-PLAN.md — xUnit infrastructure and FuelStrategyCalculator extracted
-last_updated: "2026-05-19T12:13:23.964Z"
-last_activity: 2026-05-19 — Roadmap created; phases and success criteria defined
+status: executing
+stopped_at: Completed 01-03 — FUEL-03 safety margin wired and verified
+last_updated: "2026-05-19T13:00:00.000Z"
+last_activity: 2026-05-19 — Phase 1 complete; FUEL-01, FUEL-02, FUEL-03 all fixed, 7/7 Category=Fuel tests green
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 ## Current Position
 
 Phase: 1 of 2 (Fuel Strategy Correctness)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-05-19 — Roadmap created; phases and success criteria defined
+Plan: 3 of 3 in current phase (all plans complete — Phase 1 done)
+Status: Executing
+Last activity: 2026-05-19 — Phase 1 complete; FUEL-01, FUEL-02, FUEL-03 all fixed; 7/7 Category=Fuel tests green
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████████] 100% (Phase 1)
 
 ## Performance Metrics
 
@@ -64,6 +64,10 @@ Recent decisions affecting current work:
 - Existing: Rendu code-behind C# pur (pas MVVM/binding) — pattern valide en prod, conserver pour les overlays
 - [Phase 01-fuel-strategy-correctness]: Extract FuelStrategyCalculator as pure static class — no SharedMemoryReader dependency enables unit testing
 - [Phase 01-fuel-strategy-correctness]: Target net8.0-windows for test project to match main project TargetFramework and avoid WPF type conflicts
+- [Plan 01-02]: Merged vehicle loop in GetFuelData() to find playerClass and P1 leader in one pass — DNF (mFinishStatus==1) excluded, finished (==3) included
+- [Plan 01-02]: _wasSlowPhaseThisLap tracks SC/VSC via mYellowFlagState >= 0; resets carry-over at lap boundary if SC still active
+- [Plan 01-03]: FuelStrategyConfig constructor injection into DataService — injected at construction time guarantees field always initialized; SAFETY_MARGIN_LAPS const removed
+- [Plan 01-03]: Slider range 0-3 laps (F1 format) with immediate _configService.Save() on change — consistent with all other overlay settings sliders in MainWindow
 
 ### Pending Todos
 
@@ -75,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-19T12:13:23.962Z
-Stopped at: Completed 01-01-PLAN.md — xUnit infrastructure and FuelStrategyCalculator extracted
+Last session: 2026-05-19T13:00:00.000Z
+Stopped at: Completed 01-03-PLAN.md — FUEL-03 safety margin configurable and verified
 Resume file: None
