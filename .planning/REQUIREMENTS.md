@@ -1,67 +1,67 @@
 # Requirements: LMUOverlay — Douze Assistance
 
 **Defined:** 2026-05-19
-**Core Value:** Le pilote sait en un coup d'œil combien d'essence/énergie ajouter au pit stop pour finir la course — en tenant compte du leader global et du multi-classe.
+**Core Value:** Le pilote sait en un coup d'oeil combien d'essence/energie ajouter au pit stop pour finir la course — en tenant compte du leader global et du multi-classe.
 
 ## v1 Requirements
 
 ### Fuel Strategy
 
-- [ ] **FUEL-01**: Le calcul des tours restants est basé sur la position du leader global (tous classes confondus), pas sur les tours parcourus par le joueur
-- [ ] **FUEL-02**: Les tours effectués sous Safety Car / VSC sont détectés et exclus de la moyenne de consommation par tour
-- [ ] **FUEL-03**: L'utilisateur peut configurer une marge de sécurité (en tours, défaut = 1) ajoutée au calcul de carburant à ajouter au prochain pit stop
+- [ ] **FUEL-01**: Le calcul des tours restants est base sur la position du leader global (tous classes confondus), pas sur les tours parcourus par le joueur
+- [ ] **FUEL-02**: Les tours effectues sous Safety Car / VSC sont detectes et exclus de la moyenne de consommation par tour
+- [ ] **FUEL-03**: L'utilisateur peut configurer une marge de securite (en tours, defaut = 1) ajoutee au calcul de carburant a ajouter au prochain pit stop
 
 ### UI Customization
 
 - [ ] **UI-01**: L'utilisateur peut repositionner chaque panneau overlay par drag & drop pendant une session de configuration
 - [ ] **UI-02**: L'utilisateur peut redimensionner librement chaque panneau overlay (largeur et hauteur)
-- [ ] **UI-03**: L'utilisateur peut choisir parmi plusieurs thèmes visuels (au minimum : dark actuel + 2 nouveaux thèmes)
-- [ ] **UI-04**: Les positions et tailles des panneaux sont sauvegardées dans des profils séparés pour l'affichage 2D (écran) et VR
+- [ ] **UI-03**: L'utilisateur peut choisir parmi plusieurs themes visuels (au minimum : dark actuel + 2 nouveaux themes)
+- [ ] **UI-04**: Les positions et tailles des panneaux sont sauvegardees dans des profils separes pour l'affichage 2D (ecran) et VR
 
 ## v2 Requirements
 
-### VR Rendering (déféré — priorité après stabilisation v1)
+### VR Rendering (defere — priorite apres stabilisation v1)
 
-- **VR-01**: Proof-of-concept pipeline SkiaSharp 3.119.2 + D3D11 backend sur un overlay unique avant migration complète
+- **VR-01**: Proof-of-concept pipeline SkiaSharp 3.119.2 + D3D11 backend sur un overlay unique avant migration complete
 - **VR-02**: Migration du rendu VR de `RenderTargetBitmap` vers rendu direct dans textures swapchain OpenXR (tous overlays)
 
-### Fuel — VE Hypercar (déféré)
+### Fuel — VE Hypercar (defere)
 
-- **FUEL-04**: Chemin de calcul séparé pour les voitures hybrides/électriques : prédiction énergie virtuelle (%) à ajouter cohérente avec les tours restants multi-classe
+- **FUEL-04**: Chemin de calcul separe pour les voitures hybrides/electriques : prediction energie virtuelle (%) a ajouter coherente avec les tours restants multi-classe
 
-### Performance (déféré — à intégrer dans phases ultérieures)
+### Performance (defere — a integrer dans phases ulterieures)
 
-- **PERF-01**: VR frame submission déplacé sur thread dédié hors UI thread
-- **PERF-02**: Profiling et budget du DispatcherTimer 60Hz — mesure du budget réel par overlay
+- **PERF-01**: VR frame submission deplace sur thread dedie hors UI thread
+- **PERF-02**: Profiling et budget du DispatcherTimer 60Hz — mesure du budget reel par overlay
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
 | Application mobile ou web | Overlay desktop/VR uniquement |
-| Connexion cloud / multi-driver | Données locales uniquement (shared memory) |
+| Connexion cloud / multi-driver | Donnees locales uniquement (shared memory) |
 | Support simulateurs autres que LMU/rF2 | Hors scope v2.x |
-| AI engineer / stratégiste IA | Couvert par des outils dédiés (Crew Chief, Smart Race Engineer) |
-| Télémétrie recording / replay | Couvert par TinyPedal — duplication inutile |
-| Multi-driver stint scheduling | Outil dédié hors scope overlay |
+| AI engineer / strategiste IA | Couvert par des outils dedies (Crew Chief, Smart Race Engineer) |
+| Telemetrie recording / replay | Couvert par TinyPedal — duplication inutile |
+| Multi-driver stint scheduling | Outil dedie hors scope overlay |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FUEL-01 | Phase 1 | Pending |
-| FUEL-02 | Phase 1 | Pending |
-| FUEL-03 | Phase 1 | Pending |
-| UI-01 | Phase 2 | Pending |
-| UI-02 | Phase 2 | Pending |
-| UI-03 | Phase 2 | Pending |
-| UI-04 | Phase 2 | Pending |
+| FUEL-01 | Phase 1 — Fuel Strategy Correctness | Pending |
+| FUEL-02 | Phase 1 — Fuel Strategy Correctness | Pending |
+| FUEL-03 | Phase 1 — Fuel Strategy Correctness | Pending |
+| UI-01 | Phase 2 — UI Customization | Pending |
+| UI-02 | Phase 2 — UI Customization | Pending |
+| UI-03 | Phase 2 — UI Customization | Pending |
+| UI-04 | Phase 2 — UI Customization | Pending |
 
 **Coverage:**
 - v1 requirements: 7 total
 - Mapped to phases: 7
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-19*
-*Last updated: 2026-05-19 après définition initiale*
+*Last updated: 2026-05-19 — Traceability confirmed against ROADMAP.md*
