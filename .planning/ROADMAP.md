@@ -33,6 +33,16 @@ Plans:
 - [x] 01-02-PLAN.md — Fix FUEL-01 (leader laps) + FUEL-02 (SC exclusion) in DataService (Wave 1)
 - [x] 01-03-PLAN.md — Fix FUEL-03 (configurable safety margin): config class, DataService wiring, settings slider (Wave 2)
 
+### Phase 01.1: Render tech evaluation (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 01.1 to break down)
+
 ### Phase 2: UI Customization
 **Goal**: The driver can arrange, size, and theme every overlay panel freely, with separate layout profiles saved for 2D screen and VR
 **Depends on**: Phase 1

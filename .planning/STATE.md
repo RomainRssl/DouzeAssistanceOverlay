@@ -69,6 +69,10 @@ Recent decisions affecting current work:
 - [Plan 01-03]: FuelStrategyConfig constructor injection into DataService — injected at construction time guarantees field always initialized; SAFETY_MARGIN_LAPS const removed
 - [Plan 01-03]: Slider range 0-3 laps (F1 format) with immediate _configService.Save() on change — consistent with all other overlay settings sliders in MainWindow
 
+### Roadmap Evolution
+
+- Phase 01.1 inserted after Phase 1: Render tech evaluation (URGENT) — evaluate WPF vs SkiaSharp vs D3D11 before Phase 2 UI Customization
+
 ### Pending Todos
 
 None yet.
