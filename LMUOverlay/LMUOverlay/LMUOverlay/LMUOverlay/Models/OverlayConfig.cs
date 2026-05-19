@@ -111,6 +111,12 @@ namespace LMUOverlay.Models
         private double _overlayWidth;   // 0 = auto (natural size)
         private double _overlayHeight;  // 0 = auto (natural size)
 
+        // VR profile — nullable so old config.json without these fields deserializes to null safely
+        private double? _vrPosX;
+        private double? _vrPosY;
+        private double? _vrWidth;
+        private double? _vrHeight;
+
         public string Name { get; set; }
 
         public bool IsEnabled
@@ -180,6 +186,34 @@ namespace LMUOverlay.Models
                 _overlayHeight = v;
                 OnPropertyChanged();
             }
+        }
+
+        /// <summary>VR layout position X (null = not yet initialized; copies from PosX on first VR switch).</summary>
+        public double? VrPosX
+        {
+            get => _vrPosX;
+            set { _vrPosX = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>VR layout position Y (null = not yet initialized).</summary>
+        public double? VrPosY
+        {
+            get => _vrPosY;
+            set { _vrPosY = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>VR layout width (null = not yet initialized; copies from OverlayWidth on first VR switch).</summary>
+        public double? VrWidth
+        {
+            get => _vrWidth;
+            set { _vrWidth = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>VR layout height (null = not yet initialized).</summary>
+        public double? VrHeight
+        {
+            get => _vrHeight;
+            set { _vrHeight = value; OnPropertyChanged(); }
         }
 
         // Dictionary for overlay-specific custom settings
