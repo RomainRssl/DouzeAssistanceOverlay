@@ -7,12 +7,12 @@ namespace LMUOverlay.Services
     public class DataService
     {
         private readonly SharedMemoryReader _reader;
+        private readonly FuelStrategyConfig _fuelConfig;
 
         // ---- CONSUMPTION TRACKER (dual: fuel + energy) ----
         private readonly List<double> _fuelSamples = new();
         private readonly List<double> _energySamples = new();
         private const int MAX_SAMPLES = 5;
-        private const double SAFETY_MARGIN_LAPS = 1.0;
 
         // Fuel tracking
         private double _fuelAtStartOfLap = -1;
@@ -67,7 +67,11 @@ namespace LMUOverlay.Services
         private bool _prevInPits = false;
         private string _prevTrackForPit = "";
 
-        public DataService(SharedMemoryReader reader) { _reader = reader; }
+        public DataService(SharedMemoryReader reader, FuelStrategyConfig fuelConfig)
+        {
+            _reader = reader;
+            _fuelConfig = fuelConfig;
+        }
 
         // ====================================================================
         // VEHICLE DATA
@@ -840,7 +844,7 @@ namespace LMUOverlay.Services
 
             // Fuel to add (only meaningful in race with enough samples)
             bool fuelDataReady = C_fuel > 0.1 && _fuelSamples.Count >= 2 && raceLapsLeft > 0;
-            double V_marge = SAFETY_MARGIN_LAPS * C_fuel;
+            double V_marge = _fuelConfig.SafetyMarginLaps * C_fuel;
             double fuelToEnd = fuelDataReady ? raceLapsLeft * C_fuel : 0;
             double fuelToAdd = fuelDataReady
                 ? Math.Max(0, (raceLapsLeft * C_fuel) - V_actuel + V_marge) : 0;
@@ -862,7 +866,7 @@ namespace LMUOverlay.Services
                 ? (int)Math.Floor(currentEnergyDisplay / (useVE ? C_ve : C_energyNet))
                 : 999;
             int maxStintLaps = Math.Min(maxStintFuel, maxStintEnergy);
-            double windowClose = L_real > 0 ? L_real - SAFETY_MARGIN_LAPS : 0;
+            double windowClose = L_real > 0 ? L_real - _fuelConfig.SafetyMarginLaps : 0;
             int windowOpen = raceLapsLeft - maxStintLaps;
 
             PitWindowState windowState;
