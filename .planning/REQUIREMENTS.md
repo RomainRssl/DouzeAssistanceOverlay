@@ -7,9 +7,9 @@
 
 ### Fuel Strategy
 
-- [ ] **FUEL-01**: Le calcul des tours restants est base sur la position du leader global (tous classes confondus), pas sur les tours parcourus par le joueur
-- [ ] **FUEL-02**: Les tours effectues sous Safety Car / VSC sont detectes et exclus de la moyenne de consommation par tour
-- [ ] **FUEL-03**: L'utilisateur peut configurer une marge de securite (en tours, defaut = 1) ajoutee au calcul de carburant a ajouter au prochain pit stop
+- [x] **FUEL-01**: Le calcul des tours restants est base sur la position du leader global (tous classes confondus), pas sur les tours parcourus par le joueur
+- [x] **FUEL-02**: Les tours effectues sous Safety Car / VSC sont detectes et exclus de la moyenne de consommation par tour
+- [x] **FUEL-03**: L'utilisateur peut configurer une marge de securite (en tours, defaut = 1) ajoutee au calcul de carburant a ajouter au prochain pit stop
 
 ### UI Customization
 
@@ -22,7 +22,7 @@
 
 ### VR Rendering (defere — priorite apres stabilisation v1)
 
-- **VR-01**: Proof-of-concept pipeline SkiaSharp 3.119.2 + D3D11 backend sur un overlay unique avant migration complete
+- [x] **VR-01**: Proof-of-concept pipeline SkiaSharp 3.119.2 + D3D11 backend sur un overlay unique avant migration complete
 - **VR-02**: Migration du rendu VR de `RenderTargetBitmap` vers rendu direct dans textures swapchain OpenXR (tous overlays)
 
 ### Fuel — VE Hypercar (defere)
@@ -49,9 +49,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FUEL-01 | Phase 1 — Fuel Strategy Correctness | Pending |
-| FUEL-02 | Phase 1 — Fuel Strategy Correctness | Pending |
-| FUEL-03 | Phase 1 — Fuel Strategy Correctness | Pending |
+| FUEL-01 | Phase 1 — Fuel Strategy Correctness | Complete |
+| FUEL-02 | Phase 1 — Fuel Strategy Correctness | Complete |
+| FUEL-03 | Phase 1 — Fuel Strategy Correctness | Complete |
+| VR-01 | Phase 01.1 — Render Tech Evaluation | Complete |
 | UI-01 | Phase 2 — UI Customization | Pending |
 | UI-02 | Phase 2 — UI Customization | Pending |
 | UI-03 | Phase 2 — UI Customization | Pending |
