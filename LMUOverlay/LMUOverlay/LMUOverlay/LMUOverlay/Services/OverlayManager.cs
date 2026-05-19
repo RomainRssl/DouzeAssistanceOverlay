@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using LMUOverlay.Helpers;
 using LMUOverlay.Models;
 using LMUOverlay.Views.Overlays;
 using LMUOverlay.VR;
@@ -226,8 +227,16 @@ namespace LMUOverlay.Services
             BackendReady:
             _vrService = candidate;
 
+            // Initialize VR fields from 2D layout before registering overlays,
+            // so the VR service receives the correct initial positions.
+            foreach (var (key, window) in _overlays)
+                VrProfileHelper.InitVrFromTwoD(window.Settings);
+
             foreach (var (key, window) in _overlays)
                 _vrService.RegisterOverlay(key, window, window.Settings);
+
+            BaseOverlayWindow.IsVRModeActive = true;
+            ApplyVrProfile();
 
             _vrService.VRStatusChanged += (s, active) => VRStatusChanged?.Invoke(this, active);
             VRStatusChanged?.Invoke(this, true);
@@ -241,7 +250,45 @@ namespace LMUOverlay.Services
         {
             _vrService?.Shutdown();
             _vrService = null;
+            BaseOverlayWindow.IsVRModeActive = false;
+            Apply2dProfile();
             VRStatusChanged?.Invoke(this, false);
+        }
+
+        /// <summary>
+        /// Initializes VR fields from 2D layout (if not yet set) and repositions WPF windows
+        /// to the VR positions by setting window properties directly.
+        /// Does NOT write to Settings.PosX/PosY/OverlayWidth/OverlayHeight so that
+        /// Apply2dProfile can restore the 2D layout from those intact fields.
+        /// </summary>
+        public void ApplyVrProfile()
+        {
+            foreach (var o in _overlays.Values)
+            {
+                VrProfileHelper.InitVrFromTwoD(o.Settings);
+                // Set WPF window position/size directly — do NOT write to Settings 2D fields
+                if (o.Settings.VrPosX.HasValue) o.Left = o.Settings.VrPosX.Value;
+                if (o.Settings.VrPosY.HasValue) o.Top  = o.Settings.VrPosY.Value;
+                if (o.Settings.VrWidth.HasValue  && o.Settings.VrWidth.Value  > 30) o.Width  = o.Settings.VrWidth.Value;
+                if (o.Settings.VrHeight.HasValue && o.Settings.VrHeight.Value > 30) o.Height = o.Settings.VrHeight.Value;
+            }
+        }
+
+        /// <summary>
+        /// Restores overlays to their 2D layout after VR mode ends.
+        /// Reads Settings.PosX/PosY/OverlayWidth/OverlayHeight, which were preserved intact
+        /// because ApplyVrProfile never wrote to them.
+        /// </summary>
+        public void Apply2dProfile()
+        {
+            foreach (var o in _overlays.Values)
+            {
+                // 2D fields were never touched during VR mode — read them directly
+                o.Left = o.Settings.PosX;
+                o.Top  = o.Settings.PosY;
+                if (o.Settings.OverlayWidth  > 30) o.Width  = o.Settings.OverlayWidth;
+                if (o.Settings.OverlayHeight > 30) o.Height = o.Settings.OverlayHeight;
+            }
         }
 
         // ================================================================

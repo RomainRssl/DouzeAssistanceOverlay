@@ -24,6 +24,12 @@ namespace LMUOverlay.Views.Overlays
         // MainWindow subscribes to show/reposition OverlayEditBar
         public static event Action<BaseOverlayWindow>? OverlayFocused;
 
+        /// <summary>
+        /// Set by OverlayManager.StartVR/StopVR. Routes drag/resize saves to VR or 2D fields.
+        /// Static avoids circular reference between BaseOverlayWindow and OverlayManager.
+        /// </summary>
+        public static bool IsVRModeActive { get; set; }
+
         // Content
         private FrameworkElement? _originalContent;
         private Grid? _outerGrid;
@@ -445,8 +451,7 @@ namespace LMUOverlay.Views.Overlays
             if (!_isDragging) return;
             _isDragging = false;
             ReleaseMouseCapture();
-            Settings.PosX = Left;
-            Settings.PosY = Top;
+            VrProfileHelper.SaveDragResult(Settings, Left, Top, IsVRModeActive);
         }
 
         // ================================================================
@@ -555,8 +560,10 @@ namespace LMUOverlay.Views.Overlays
             if (UseRawResize)
             {
                 // Persiste largeur ET hauteur
-                if (!double.IsNaN(Width))  Settings.OverlayWidth  = Width;
-                if (!double.IsNaN(Height)) Settings.OverlayHeight = Height;
+                double w = !double.IsNaN(Width)  ? Width  : 0;
+                double h = !double.IsNaN(Height) ? Height : 0;
+                if (w > 0 || h > 0)
+                    VrProfileHelper.SaveResizeResult(Settings, w > 0 ? w : Settings.OverlayWidth, h > 0 ? h : Settings.OverlayHeight, IsVRModeActive);
                 e.Handled = true;
                 return;
             }
@@ -564,15 +571,18 @@ namespace LMUOverlay.Views.Overlays
             if (UseWidthOnlyResize)
             {
                 // Persiste uniquement la largeur (la hauteur est auto)
-                if (!double.IsNaN(Width)) Settings.OverlayWidth = Width;
+                if (!double.IsNaN(Width))
+                    VrProfileHelper.SaveResizeResult(Settings, Width, Settings.OverlayHeight, IsVRModeActive);
                 e.Handled = true;
                 return;
             }
 
             // Save dimensions and update Scale to keep the slider in sync
             // Height is always derived from Width via aspect ratio, so save both
-            if (!double.IsNaN(Width))  Settings.OverlayWidth  = Width;
-            if (!double.IsNaN(Height)) Settings.OverlayHeight = Height;
+            double newW = !double.IsNaN(Width)  ? Width  : 0;
+            double newH = !double.IsNaN(Height) ? Height : 0;
+            if (newW > 0 || newH > 0)
+                VrProfileHelper.SaveResizeResult(Settings, newW > 0 ? newW : Settings.OverlayWidth, newH > 0 ? newH : Settings.OverlayHeight, IsVRModeActive);
             if (_naturalWidth > 0)
             {
                 _suppressScaleResize = true;
