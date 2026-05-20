@@ -52,8 +52,8 @@ completed: 2026-05-20
 
 - **Duration:** 2 min
 - **Started:** 2026-05-20T12:42:39Z
-- **Completed:** 2026-05-20T12:44:30Z
-- **Tasks:** 1 (Task 2 is checkpoint:human-verify — awaiting user)
+- **Completed:** 2026-05-20T12:45:32Z
+- **Tasks:** 2 (Task 1: auto; Task 2: checkpoint:human-verify — approved)
 - **Files modified:** 1
 
 ## Accomplishments
@@ -62,14 +62,16 @@ completed: 2026-05-20
 - CHARGER button calls `_overlayManager.GetOverlay<WebBrowserOverlay>("WebBrowser")?.LoadUrl(urlBox.Text.Trim())` — null-safe
 - Enter key in URL TextBox raises Button.ClickEvent on CHARGER — same pattern as TwitchChat channelBox
 - Build: 0 errors, 26 warnings (all pre-existing)
+- Human-verify (Task 2): full end-to-end flow confirmed — overlay appears, page loads, drag works via WEB bandeau, invalid URL disables overlay
 
 ## Task Commits
 
 Each task was committed atomically:
 
 1. **Task 1: Add WebBrowser settings section to MainWindow** - `6a922d6` (feat)
+2. **Task 2: Human-verify full WebBrowserOverlay flow** - approved by user (checkpoint:human-verify, no code commit)
 
-_Task 2 is checkpoint:human-verify — no commit (awaiting visual verification)_
+**Plan metadata:** `c0ff123` (docs: complete WebBrowser MainWindow UI wiring plan)
 
 ## Files Created/Modified
 - `LMUOverlay/LMUOverlay/LMUOverlay/LMUOverlay/Views/MainWindow.xaml.cs` - Added NAVIGATEUR WEB to sidebar list + WebBrowser settings panel (PAGE WEB header, volatile URL TextBox, CHARGER button with LoadUrl wiring)
@@ -102,8 +104,9 @@ None — build succeeded on first attempt.
 None - no external service configuration required. WebView2 runtime is typically bundled with Windows 11 / Edge.
 
 ## Next Phase Readiness
-- Full end-to-end WebBrowserOverlay flow compiled and ready for visual verification (Task 2 checkpoint)
-- After human-verify approval: Phase 03 complete, Phase 04 (Twitch Chat Visual Customization) can begin
+- Phase 03 complete — all 3 plans done (TDD stubs, WebBrowserOverlay production code, MainWindow UI wiring)
+- Full end-to-end verified: user types URL, clicks CHARGER, page loads in floating WEB overlay
+- Phase 04 (Twitch Chat Visual Customization) can begin
 - WebView2 runtime must be installed on user machine (standard with Windows 11)
 
 ---
