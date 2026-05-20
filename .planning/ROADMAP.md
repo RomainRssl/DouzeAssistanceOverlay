@@ -73,3 +73,33 @@ Phases execute in numeric order: 1 → 01.1 → 2
 | 1. Fuel Strategy Correctness | 3/3 | Complete | 2026-05-19 |
 | 01.1. Render Tech Evaluation | 3/3 | Complete    | 2026-05-19 |
 | 2. UI Customization | 4/4 | Complete   | 2026-05-19 |
+
+### Phase 3: Web Browser Overlay — Overlay WebView2 affichant une page web depuis une URL configurable par l'utilisateur
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 2
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 3 to break down)
+
+### Phase 4: Twitch Chat Visual Customization — image header et color picker pour l'overlay chat
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 4 to break down)
+
+### Phase 5: TTS Humanization — remplacement du moteur TTS par Piper ou Kokoro pour voix naturelle locale
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 5 to break down)

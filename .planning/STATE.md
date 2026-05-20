@@ -98,6 +98,9 @@ Recent decisions affecting current work:
 ### Roadmap Evolution
 
 - Phase 01.1 inserted after Phase 1: Render tech evaluation (URGENT) — evaluate WPF vs SkiaSharp vs D3D11 before Phase 2 UI Customization
+- Phase 3 added: Web Browser Overlay — WebView2 overlay affichant une page web depuis une URL configurable
+- Phase 4 added: Twitch Chat Visual Customization — image header et color picker pour l'overlay chat
+- Phase 5 added: TTS Humanization — moteur TTS local (Piper/Kokoro) pour voix naturelle
 
 ### Pending Todos
 
