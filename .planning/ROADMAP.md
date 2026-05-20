@@ -100,10 +100,12 @@ Plans:
 
 ### Phase 5: TTS Humanization — remplacement du moteur TTS par Piper ou Kokoro pour voix naturelle locale
 
-**Goal:** [To be planned]
+**Goal:** Le pilote peut editer les 23 textes d'alertes vocales depuis l'onglet Audio et generer les WAV correspondants via Piper TTS local (voix VITS fr_FR naturelle) en cliquant "Appliquer" — sans installation manuelle de Piper
 **Requirements**: TBD
 **Depends on:** Phase 4
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 5 to break down)
+- [ ] 05-01-PLAN.md — Wave 0: RED TDD stubs AlertTextsTests (JSON round-trip, GetAlertText, 23 defaults)
+- [ ] 05-02-PLAN.md — Wave 1: GeneralSettings.AlertTexts + GetAlertText + VoiceService.EnsureDefaultAlertTexts + replace 23 hardcoded strings
+- [ ] 05-03-PLAN.md — Wave 2: VoicePanel Textes des alertes section (23 TextBox) + Piper Process.Start stdin handler + human-verify
