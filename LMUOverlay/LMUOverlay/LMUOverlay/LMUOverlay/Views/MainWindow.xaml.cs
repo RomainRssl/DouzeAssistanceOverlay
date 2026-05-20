@@ -64,6 +64,7 @@ namespace LMUOverlay.Views
                 ("Compteur",           "COMPTEUR",      _config.Compteur),
                 ("Clock",              "HORLOGE",       _config.Clock),
                 ("TwitchChat",         "TCHAT TWITCH",  _config.TwitchChat),
+                ("WebBrowser",         "NAVIGATEUR WEB",_config.WebBrowser),
                 ("PitDistance",        "STANDS",        _config.PitDistance),
             };
 
@@ -531,6 +532,80 @@ namespace LMUOverlay.Views
                 AddSlider("Nb messages", _config.Twitch.MaxMessages, 5, 50,
                     v => _config.Twitch.MaxMessages = (int)v, "F0");
             }
+
+            if (key == "WebBrowser")
+            {
+                AddSep();
+
+                Add(new TextBlock
+                {
+                    Text       = "PAGE WEB",
+                    FontSize   = 9,
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0, 210, 190)),
+                    Margin     = new Thickness(0, 0, 0, 6),
+                });
+
+                // URL row: label (40px) | TextBox (stretch) | CHARGER button (auto)
+                var urlRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                urlRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+                urlRow.ColumnDefinitions.Add(new ColumnDefinition());
+                urlRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                urlRow.Children.Add(new TextBlock
+                {
+                    Text              = "URL",
+                    FontSize          = 11,
+                    FontFamily        = new FontFamily("Segoe UI"),
+                    Foreground        = B(163, 163, 163),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+
+                // URL is VOLATILE — never populated from config, always empty on launch
+                var urlBox = new TextBox
+                {
+                    Text              = "",
+                    FontSize          = 11,
+                    FontFamily        = new FontFamily("Consolas"),
+                    Foreground        = B(34, 197, 94),
+                    Background        = new SolidColorBrush(Color.FromRgb(22, 24, 30)),
+                    BorderBrush       = new SolidColorBrush(Color.FromRgb(50, 50, 60)),
+                    BorderThickness   = new Thickness(1),
+                    Padding           = new Thickness(6, 3, 6, 3),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin            = new Thickness(4, 0, 4, 0),
+                };
+                Grid.SetColumn(urlBox, 1);
+                urlRow.Children.Add(urlBox);
+
+                var loadBtn = new Button
+                {
+                    Content    = "CHARGER",
+                    FontSize   = 9,
+                    Padding    = new Thickness(10, 3, 10, 3),
+                    Style      = (Style)FindResource("FlatToggle"),
+                    Foreground = new SolidColorBrush(Color.FromRgb(0, 210, 190)),
+                };
+                Grid.SetColumn(loadBtn, 2);
+                urlRow.Children.Add(loadBtn);
+
+                loadBtn.Click += (_, _) =>
+                {
+                    var overlay = _overlayManager.GetOverlay<WebBrowserOverlay>("WebBrowser");
+                    overlay?.LoadUrl(urlBox.Text.Trim());
+                };
+
+                // Enter key in URL box triggers CHARGER
+                urlBox.KeyDown += (_, e) =>
+                {
+                    if (e.Key == System.Windows.Input.Key.Enter)
+                        loadBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                };
+
+                Add(urlRow);
+            }
+
             if (key == "PitDistance")
             {
                 AddSep();
