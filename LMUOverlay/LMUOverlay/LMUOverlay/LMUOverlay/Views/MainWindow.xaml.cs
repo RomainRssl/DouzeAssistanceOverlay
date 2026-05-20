@@ -531,6 +531,171 @@ namespace LMUOverlay.Views
                 // ── Max messages ──────────────────────────────────────────────
                 AddSlider("Nb messages", _config.Twitch.MaxMessages, 5, 50,
                     v => _config.Twitch.MaxMessages = (int)v, "F0");
+
+                // ── IMAGE BANDEAU ─────────────────────────────────────────────
+                AddSep();
+                Add(new TextBlock
+                {
+                    Text       = "IMAGE BANDEAU",
+                    FontSize   = 9,
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(145, 70, 255)),
+                    Margin     = new Thickness(0, 0, 0, 6),
+                });
+
+                // Ligne : label (60px) | chemin affiché (stretch) | bouton PARCOURIR (Auto)
+                var imageRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                imageRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+                imageRow.ColumnDefinitions.Add(new ColumnDefinition());
+                imageRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                imageRow.Children.Add(new TextBlock
+                {
+                    Text              = "Image",
+                    FontSize          = 11,
+                    FontFamily        = new FontFamily("Segoe UI"),
+                    Foreground        = B(163, 163, 163),
+                    VerticalAlignment = VerticalAlignment.Center,
+                });
+
+                var pathDisplay = new TextBlock
+                {
+                    Text              = string.IsNullOrEmpty(_config.Twitch.HeaderImagePath)
+                                        ? "(aucune)"
+                                        : System.IO.Path.GetFileName(_config.Twitch.HeaderImagePath),
+                    FontSize          = 10,
+                    FontFamily        = new FontFamily("Consolas"),
+                    Foreground        = B(34, 197, 94),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin            = new Thickness(4, 0, 4, 0),
+                    TextTrimming      = TextTrimming.CharacterEllipsis,
+                };
+                Grid.SetColumn(pathDisplay, 1);
+                imageRow.Children.Add(pathDisplay);
+
+                var browseBtn = new Button
+                {
+                    Content    = "PARCOURIR",
+                    FontSize   = 9,
+                    Padding    = new Thickness(10, 3, 10, 3),
+                    Style      = (Style)FindResource("FlatToggle"),
+                    Foreground = new SolidColorBrush(Color.FromRgb(145, 70, 255)),
+                };
+                Grid.SetColumn(browseBtn, 2);
+                imageRow.Children.Add(browseBtn);
+
+                browseBtn.Click += (_, _) =>
+                {
+                    var dlg = new Microsoft.Win32.OpenFileDialog
+                    {
+                        Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp",
+                        Title  = "Choisir une image de bandeau",
+                    };
+                    if (dlg.ShowDialog() == true)
+                    {
+                        _config.Twitch.HeaderImagePath = dlg.FileName;
+                        pathDisplay.Text = System.IO.Path.GetFileName(dlg.FileName);
+                        _configService.Save(_config);
+                        _overlayManager.GetOverlay<TwitchChatOverlay>("TwitchChat")?.ApplyVisualSettings();
+                    }
+                };
+
+                Add(imageRow);
+
+                // Bouton pour effacer l'image
+                var clearImageBtn = new Button
+                {
+                    Content    = "Effacer l'image",
+                    FontSize   = 9,
+                    Padding    = new Thickness(10, 3, 10, 3),
+                    Style      = (Style)FindResource("FlatToggle"),
+                    Foreground = B(163, 163, 163),
+                    Margin     = new Thickness(0, 2, 0, 0),
+                };
+                clearImageBtn.Click += (_, _) =>
+                {
+                    _config.Twitch.HeaderImagePath = "";
+                    pathDisplay.Text = "(aucune)";
+                    _configService.Save(_config);
+                    _overlayManager.GetOverlay<TwitchChatOverlay>("TwitchChat")?.ApplyVisualSettings();
+                };
+                Add(clearImageBtn);
+
+                // ── TOGGLE MASQUER LE BANDEAU ─────────────────────────────────
+                AddSep();
+                AddToggle("Masquer le bandeau", !_config.Twitch.ShowHeader, v =>
+                {
+                    _config.Twitch.ShowHeader = !v;  // toggle inversé : checked = masqué
+                    _configService.Save(_config);
+                    _overlayManager.GetOverlay<TwitchChatOverlay>("TwitchChat")?.ApplyVisualSettings();
+                });
+
+                // ── COULEURS ──────────────────────────────────────────────────
+                AddSep();
+                Add(new TextBlock
+                {
+                    Text       = "COULEURS",
+                    FontSize   = 9,
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(145, 70, 255)),
+                    Margin     = new Thickness(0, 0, 0, 6),
+                });
+
+                // Color picker FOND
+                AddColorPicker("Fond",
+                    string.IsNullOrEmpty(_config.Twitch.BackgroundColor) ? "#0C0E12" : _config.Twitch.BackgroundColor,
+                    v =>
+                    {
+                        _config.Twitch.BackgroundColor = v;
+                        _configService.Save(_config);
+                        _overlayManager.GetOverlay<TwitchChatOverlay>("TwitchChat")?.ApplyVisualSettings();
+                    });
+
+                var resetBgBtn = new Button
+                {
+                    Content    = "Reset fond",
+                    FontSize   = 9,
+                    Padding    = new Thickness(10, 3, 10, 3),
+                    Style      = (Style)FindResource("FlatToggle"),
+                    Foreground = B(163, 163, 163),
+                    Margin     = new Thickness(0, 2, 0, 6),
+                };
+                resetBgBtn.Click += (_, _) =>
+                {
+                    _config.Twitch.BackgroundColor = "";
+                    _configService.Save(_config);
+                    _overlayManager.GetOverlay<TwitchChatOverlay>("TwitchChat")?.ApplyVisualSettings();
+                };
+                Add(resetBgBtn);
+
+                // Color picker ACCENT
+                AddColorPicker("Accent",
+                    string.IsNullOrEmpty(_config.Twitch.AccentColor) ? "#9146FF" : _config.Twitch.AccentColor,
+                    v =>
+                    {
+                        _config.Twitch.AccentColor = v;
+                        _configService.Save(_config);
+                        _overlayManager.GetOverlay<TwitchChatOverlay>("TwitchChat")?.ApplyVisualSettings();
+                    });
+
+                var resetAccBtn = new Button
+                {
+                    Content    = "Reset accent",
+                    FontSize   = 9,
+                    Padding    = new Thickness(10, 3, 10, 3),
+                    Style      = (Style)FindResource("FlatToggle"),
+                    Foreground = B(163, 163, 163),
+                    Margin     = new Thickness(0, 2, 0, 0),
+                };
+                resetAccBtn.Click += (_, _) =>
+                {
+                    _config.Twitch.AccentColor = "";
+                    _configService.Save(_config);
+                    _overlayManager.GetOverlay<TwitchChatOverlay>("TwitchChat")?.ApplyVisualSettings();
+                };
+                Add(resetAccBtn);
             }
 
             if (key == "WebBrowser")
