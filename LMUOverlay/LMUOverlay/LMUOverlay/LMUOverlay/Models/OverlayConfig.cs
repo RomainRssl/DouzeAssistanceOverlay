@@ -35,6 +35,7 @@ namespace LMUOverlay.Models
         public OverlaySettings Compteur { get; set; } = new("Compteur", false);
         public OverlaySettings Clock        { get; set; } = new("Horloge", false);
         public OverlaySettings TwitchChat   { get; set; } = new("Tchat Twitch", false);
+        public OverlaySettings WebBrowser   { get; set; } = new("Navigateur Web", false);
         public OverlaySettings PitDistance  { get; set; } = new("Distance Stands", false);
 
         public TwitchSettings Twitch { get; set; } = new();

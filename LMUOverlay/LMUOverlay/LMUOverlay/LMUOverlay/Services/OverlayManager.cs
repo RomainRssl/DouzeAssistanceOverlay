@@ -66,7 +66,7 @@ namespace LMUOverlay.Services
         /// <summary>
         /// Overlays qui peuvent s'afficher sans connexion LMU (indépendants du jeu).
         /// </summary>
-        private static readonly HashSet<string> _persistentOverlays = new() { "Clock", "TwitchChat" };
+        private static readonly HashSet<string> _persistentOverlays = new() { "Clock", "TwitchChat", "WebBrowser" };
 
         /// <summary>
         /// Sous-ensemble de _persistentOverlays : ces overlays ignorent aussi HideInMenus.
@@ -145,6 +145,7 @@ namespace LMUOverlay.Services
             Reg("Compteur",             () => new CompteurOverlay(_dataService, _config.Compteur));
             Reg("Clock",                () => new ClockOverlay(_dataService, _config.Clock));
             Reg("TwitchChat",           () => new TwitchChatOverlay(_dataService, _config.TwitchChat, _twitchChatService, _config));
+            Reg("WebBrowser",           () => new WebBrowserOverlay(_dataService, _config.WebBrowser));
             Reg("PitDistance",          () => new PitDistanceOverlay(_dataService, _config.PitDistance, _config.PitDistanceConfig));
 
             _initialized = true;
