@@ -72,6 +72,12 @@ namespace LMUOverlay.Models
     {
         public string Channel     { get; set; } = "";
         public int    MaxMessages { get; set; } = 20;
+
+        // Nouveaux champs Phase 4 — personnalisation visuelle
+        public string HeaderImagePath { get; set; } = "";   // "" = aucune image (fallback texte "TCHAT")
+        public bool   ShowHeader      { get; set; } = true; // false = masque header + séparateur
+        public string BackgroundColor { get; set; } = "";   // "" = utilise PanelBackground du thème (alpha 200)
+        public string AccentColor     { get; set; } = "";   // "" = utilise Twitch purple #9146FF (alpha 80)
     }
 
     public class TwitchMessage
