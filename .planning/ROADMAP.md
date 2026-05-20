@@ -76,13 +76,15 @@ Phases execute in numeric order: 1 → 01.1 → 2
 
 ### Phase 3: Web Browser Overlay — Overlay WebView2 affichant une page web depuis une URL configurable par l'utilisateur
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** L'utilisateur peut saisir une URL dans MainWindow et la charger dans un overlay flottant WebView2 ; l'overlay se désactive silencieusement si l'URL est invalide ou si la page échoue à charger
+**Requirements**: WEB-01, WEB-02, WEB-03, WEB-04
 **Depends on:** Phase 2
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 3 to break down)
+- [ ] 03-01-PLAN.md — Wave 1: xUnit test stubs (WebBrowserUrlValidation, NavigationFailure, AppConfig round-trip)
+- [ ] 03-02-PLAN.md — Wave 2: WebView2 NuGet, WebBrowserUrlValidator, WebBrowserOverlay class, AppConfig + OverlayManager wiring
+- [ ] 03-03-PLAN.md — Wave 3: MainWindow URL TextBox + CHARGER button + human-verify checkpoint
 
 ### Phase 4: Twitch Chat Visual Customization — image header et color picker pour l'overlay chat
 
