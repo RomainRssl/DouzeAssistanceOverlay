@@ -88,13 +88,15 @@ Plans:
 
 ### Phase 4: Twitch Chat Visual Customization — image header et color picker pour l'overlay chat
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** L'utilisateur peut personnaliser visuellement l'overlay TwitchChat : choisir une image de bandeau (PNG/JPG/BMP), masquer le bandeau entièrement, et ajuster la couleur de fond et la couleur accent via des swatches — tous les changements s'appliquent en temps réel sans redémarrage
+**Requirements**: TWITCH-V-01, TWITCH-V-02, TWITCH-V-03, TWITCH-V-04, TWITCH-V-05, TWITCH-V-06, TWITCH-V-07
 **Depends on:** Phase 3
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 4 to break down)
+- [ ] 04-01-PLAN.md — Wave 0: RED stubs TwitchVisualConfigTests (JSON round-trip contrat TDD)
+- [ ] 04-02-PLAN.md — Wave 1: TwitchSettings 4 nouveaux champs + TwitchChatOverlay ApplyVisualSettings()
+- [ ] 04-03-PLAN.md — Wave 2: MainWindow TwitchChat — image picker + toggle bandeau + color pickers + human-verify
 
 ### Phase 5: TTS Humanization — remplacement du moteur TTS par Piper ou Kokoro pour voix naturelle locale
 
