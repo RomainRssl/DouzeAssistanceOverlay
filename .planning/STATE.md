@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Stopped at checkpoint:human-verify in 04-03-PLAN.md (Task 1 complete, awaiting human verification)"
-last_updated: "2026-05-20T16:46:56.154Z"
+stopped_at: Completed 04-03-PLAN.md — Phase 4 fully done, checkpoint human-verify approved
+last_updated: "2026-05-20T16:50:24.580Z"
 last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 progress:
   total_phases: 6
@@ -64,6 +64,7 @@ Progress: [███████░░░] 70% (Phase 4 in progress)
 | Phase 03-web-browser-overlay P03 | 2min | 1 tasks | 1 files |
 | Phase 03-web-browser-overlay P03 | 2min | 2 tasks | 1 files |
 | Phase 04-twitch-chat-visual-customization P02 | 3min | 2 tasks | 3 files |
+| Phase 04-twitch-chat-visual-customization P03 | 25min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,8 @@ Recent decisions affecting current work:
 - [Phase 04-twitch-chat-visual-customization]: ApplyVisualSettings() called at end of constructor before event subscriptions — ensures visual state matches config on first show
 - [Phase 04-twitch-chat-visual-customization]: BitmapCacheOption.OnLoad for header image — closes file handle immediately after load
 - [Phase 04-twitch-chat-visual-customization]: Inverted toggle for Masquer le bandeau: AddToggle receives !ShowHeader so checked=hidden (ShowHeader=!v) — matches French UX expectations
+- [Phase 04-twitch-chat-visual-customization]: Inverted toggle pour Masquer le bandeau: AddToggle reçoit !ShowHeader, callback fait ShowHeader=!v — checked=masqué correspond aux attentes UX françaises
+- [Phase 04-twitch-chat-visual-customization]: AddColorPicker reused with existing internal presets — plan's custom bgPresets/accPresets dropped in favor of existing 8-swatch palette (no API change needed)
 
 ### Roadmap Evolution
 
@@ -129,6 +132,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T16:46:50.811Z
-Stopped at: Stopped at checkpoint:human-verify in 04-03-PLAN.md (Task 1 complete, awaiting human verification)
+Last session: 2026-05-20T16:50:24.578Z
+Stopped at: Completed 04-03-PLAN.md — Phase 4 fully done, checkpoint human-verify approved
 Resume file: None
