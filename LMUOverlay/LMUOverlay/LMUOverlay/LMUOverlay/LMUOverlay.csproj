@@ -33,6 +33,7 @@
     <!-- SkiaSharp — VR-01 PoC: SKElement-based radar overlay for frame-time comparison -->
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <PackageReference Include="SkiaSharp.Views.WPF" Version="3.119.2" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2849.39" />
   </ItemGroup>
 
   <!-- OpenVR DLL: copy to output if present (optional for VR support) -->
