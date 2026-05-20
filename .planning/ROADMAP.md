@@ -91,7 +91,7 @@ Plans:
 **Goal:** L'utilisateur peut personnaliser visuellement l'overlay TwitchChat : choisir une image de bandeau (PNG/JPG/BMP), masquer le bandeau entièrement, et ajuster la couleur de fond et la couleur accent via des swatches — tous les changements s'appliquent en temps réel sans redémarrage
 **Requirements**: TWITCH-V-01, TWITCH-V-02, TWITCH-V-03, TWITCH-V-04, TWITCH-V-05, TWITCH-V-06, TWITCH-V-07
 **Depends on:** Phase 3
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 04-01-PLAN.md — Wave 0: RED stubs TwitchVisualConfigTests (JSON round-trip contrat TDD)

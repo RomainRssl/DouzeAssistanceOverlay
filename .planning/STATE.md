@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-05-20T14:09:45.250Z"
+stopped_at: "Stopped at checkpoint:human-verify in 04-03-PLAN.md (Task 1 complete, awaiting human verification)"
+last_updated: "2026-05-20T16:46:56.154Z"
 last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 70
 ---
 
@@ -110,6 +110,7 @@ Recent decisions affecting current work:
 - [Phase 04-twitch-chat-visual-customization]: Sentinel '' (empty string) for color fields — overlay interprets empty as use theme default
 - [Phase 04-twitch-chat-visual-customization]: ApplyVisualSettings() called at end of constructor before event subscriptions — ensures visual state matches config on first show
 - [Phase 04-twitch-chat-visual-customization]: BitmapCacheOption.OnLoad for header image — closes file handle immediately after load
+- [Phase 04-twitch-chat-visual-customization]: Inverted toggle for Masquer le bandeau: AddToggle receives !ShowHeader so checked=hidden (ShowHeader=!v) — matches French UX expectations
 
 ### Roadmap Evolution
 
@@ -128,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T14:09:45.247Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-05-20T16:46:50.811Z
+Stopped at: Stopped at checkpoint:human-verify in 04-03-PLAN.md (Task 1 complete, awaiting human verification)
 Resume file: None
