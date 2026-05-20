@@ -79,7 +79,7 @@ Phases execute in numeric order: 1 → 01.1 → 2
 **Goal:** L'utilisateur peut saisir une URL dans MainWindow et la charger dans un overlay flottant WebView2 ; l'overlay se désactive silencieusement si l'URL est invalide ou si la page échoue à charger
 **Requirements**: WEB-01, WEB-02, WEB-03, WEB-04
 **Depends on:** Phase 2
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 03-01-PLAN.md — Wave 1: xUnit test stubs (WebBrowserUrlValidation, NavigationFailure, AppConfig round-trip)
