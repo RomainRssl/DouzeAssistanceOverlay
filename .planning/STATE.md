@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-03-PLAN.md — Phase 03 complete
-last_updated: "2026-05-20T13:33:25.997Z"
-last_activity: 2026-05-19 — Phase 2 complete; all 4 plans done (edit mode, themes, VR profiles); ready for Phase 3
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-05-20T14:09:45.250Z"
+last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_plans: 16
+  completed_plans: 15
+  percent: 70
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 
 ## Current Position
 
-Phase: 2 of 3 (UI Customization)
-Plan: 4 of 4 in current phase (02-04 complete — Phase 2 fully done)
+Phase: 4 of 6 (Twitch Chat Visual Customization)
+Plan: 1 of 3 in current phase (04-01 complete — TwitchVisual test stubs done)
 Status: Executing
-Last activity: 2026-05-19 — Phase 2 complete; all 4 plans done (edit mode, themes, VR profiles); ready for Phase 3
+Last activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 
-Progress: [██████████] 100% (Phase 2 complete)
+Progress: [███████░░░] 70% (Phase 4 in progress)
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [██████████] 100% (Phase 2 complete)
 | Phase 03-web-browser-overlay P02 | 3min | 2 tasks | 5 files |
 | Phase 03-web-browser-overlay P03 | 2min | 1 tasks | 1 files |
 | Phase 03-web-browser-overlay P03 | 2min | 2 tasks | 1 files |
+| Phase 04-twitch-chat-visual-customization P02 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,10 @@ Recent decisions affecting current work:
 - [Phase 03-web-browser-overlay]: WebBrowser added to _allOverlays sidebar list (NAVIGATEUR WEB) — required for toggle and settings panel routing, missing from plan spec
 - [Phase 03-web-browser-overlay]: URL TextBox Text='' hardcoded, never bound to config — volatile by locked design decision
 - [Phase 03-web-browser-overlay]: Human-verify checkpoint approved: full WebBrowserOverlay end-to-end flow confirmed — URL TextBox, CHARGER button, page loads, drag works via WEB bandeau, invalid URL disables overlay
+- [Phase 04-twitch-chat-visual-customization]: TwitchSettings 4 visual fields (HeaderImagePath, ShowHeader, BackgroundColor, AccentColor) were pre-applied to OverlayConfig.cs before Plan 04-01 executed — tests went GREEN immediately; Assert.Fail() preferred over Assert.True(false) per xUnit2020 rule
+- [Phase 04-twitch-chat-visual-customization]: Sentinel '' (empty string) for color fields — overlay interprets empty as use theme default
+- [Phase 04-twitch-chat-visual-customization]: ApplyVisualSettings() called at end of constructor before event subscriptions — ensures visual state matches config on first show
+- [Phase 04-twitch-chat-visual-customization]: BitmapCacheOption.OnLoad for header image — closes file handle immediately after load
 
 ### Roadmap Evolution
 
@@ -123,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T12:57:47.328Z
-Stopped at: Completed 03-03-PLAN.md — Phase 03 complete
+Last session: 2026-05-20T14:09:45.247Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
