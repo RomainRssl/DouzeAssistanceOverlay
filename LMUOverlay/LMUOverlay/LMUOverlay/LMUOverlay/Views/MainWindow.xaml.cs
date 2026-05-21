@@ -83,6 +83,9 @@ namespace LMUOverlay.Views
                 Dispatcher.Invoke(() => _editBar.AttachTo(overlay));
             };
 
+            // Peupler les textes d'alertes par défaut pour les clés absentes (Phase 5)
+            Services.VoiceService.EnsureDefaultAlertTexts(_config.General);
+
             App.WriteCrashLog("[INIT] VoicePanel\n");
             VoicePanel.Initialize(_config.General, _overlayManager.VoiceService,
                                   _configService, _config);
