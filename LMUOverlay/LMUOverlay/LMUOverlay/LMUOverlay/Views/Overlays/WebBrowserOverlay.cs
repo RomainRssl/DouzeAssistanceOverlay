@@ -11,8 +11,10 @@ namespace LMUOverlay.Views.Overlays
 {
     public class WebBrowserOverlay : BaseOverlayWindow
     {
-        private readonly WebView2 _webView;
-        private bool _initialized;
+        private readonly WebView2   _webView;
+        private readonly TextBlock  _statusBar;
+        private bool   _initialized;
+        private string _pendingUrl = "";
 
         public WebBrowserOverlay(DataService ds, OverlaySettings s) : base(ds, s)
         {
@@ -22,9 +24,8 @@ namespace LMUOverlay.Views.Overlays
             // AllowsTransparency=true set by BaseOverlayWindow constructor.
             // MUST override before window is shown (InvalidOperationException if changed after Show()).
             AllowsTransparency = false;
-            WindowStyle = WindowStyle.None;   // keep borderless despite AllowsTransparency=false
+            WindowStyle = WindowStyle.None;
             var bg = ThemeManager.Current.PanelBackground;
-            // Use alpha=220 (same visual weight as TwitchChatOverlay)
             Background = new SolidColorBrush(Color.FromArgb(220, bg.R, bg.G, bg.B));
 
             _webView = new WebView2
@@ -33,10 +34,24 @@ namespace LMUOverlay.Views.Overlays
                 VerticalAlignment   = VerticalAlignment.Stretch,
             };
 
-            // Layout: bandeau on top (WPF), WebView2 fills remaining space
+            // Status bar sits ABOVE the WebView2 row — safe from HWND z-order issue.
+            // Hidden by default, shown only during loading or on error.
+            _statusBar = new TextBlock
+            {
+                FontFamily  = new System.Windows.Media.FontFamily("Segoe UI"),
+                FontSize    = 10,
+                Foreground  = new SolidColorBrush(Color.FromRgb(163, 163, 163)),
+                Background  = new SolidColorBrush(Color.FromArgb(180, 20, 20, 20)),
+                Padding     = new Thickness(8, 4, 8, 4),
+                TextWrapping = TextWrapping.NoWrap,
+                Visibility  = Visibility.Collapsed,
+            };
+
+            // Layout: title | status bar (optional) | WebView2
             // WARNING: never place WPF elements overlapping the WebView2 area —
             // the HWND always renders on top of WPF visuals at the same z-layer.
             var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
@@ -44,10 +59,12 @@ namespace LMUOverlay.Views.Overlays
             Grid.SetRow(title, 0);
             root.Children.Add(title);
 
-            Grid.SetRow(_webView, 1);
+            Grid.SetRow(_statusBar, 1);
+            root.Children.Add(_statusBar);
+
+            Grid.SetRow(_webView, 2);
             root.Children.Add(_webView);
 
-            // Wrap in a Border so BaseOverlayWindow can extract background into _bgBorder
             var outer = new Border
             {
                 Background   = new SolidColorBrush(Color.FromArgb(220, bg.R, bg.G, bg.B)),
@@ -64,47 +81,60 @@ namespace LMUOverlay.Views.Overlays
             Loaded -= OnLoaded;
             try
             {
+                SetStatus("Initialisation WebView2...");
                 await _webView.EnsureCoreWebView2Async(null);
                 _webView.NavigationCompleted += OnNavigationCompleted;
                 _initialized = true;
+                HideStatus();
+
+                if (!string.IsNullOrEmpty(_pendingUrl))
+                {
+                    _webView.CoreWebView2.Navigate(_pendingUrl);
+                    _pendingUrl = "";
+                }
             }
             catch (Exception ex)
             {
-                // WebView2 runtime not installed — disable silently
-                System.Diagnostics.Debug.WriteLine($"[WebBrowserOverlay] WebView2 init failed: {ex.Message}");
-                Settings.IsEnabled = false;
+                SetStatus($"Erreur WebView2 : {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Called by MainWindow "Charger" button. Validates URL format then navigates.
-        /// Sets IsEnabled=false silently on invalid URL.
-        /// </summary>
         public void LoadUrl(string url)
         {
-            if (!_initialized || _webView.CoreWebView2 == null)
-            {
-                System.Diagnostics.Debug.WriteLine("[WebBrowserOverlay] LoadUrl called before initialization");
-                return;
-            }
-
             if (!WebBrowserUrlValidator.IsValidWebUrl(url))
             {
-                Settings.IsEnabled = false;
+                SetStatus("URL invalide — doit commencer par http:// ou https://");
                 return;
             }
 
+            if (!_initialized)
+            {
+                // Init still in progress — queue the URL
+                _pendingUrl = url;
+                SetStatus("Chargement en cours...");
+                return;
+            }
+
+            SetStatus("Chargement...");
             _webView.CoreWebView2.Navigate(url);
         }
 
         private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
         {
-            if (!e.IsSuccess)
+            Dispatcher.Invoke(() =>
             {
-                // Silent disable — per spec, no error message shown in overlay
-                Dispatcher.Invoke(() => Settings.IsEnabled = false);
-            }
+                if (e.IsSuccess)
+                    HideStatus();
+                else
+                    SetStatus($"Erreur de navigation (code {e.WebErrorStatus})");
+            });
         }
+
+        private void SetStatus(string msg)
+            => Dispatcher.Invoke(() => { _statusBar.Text = msg; _statusBar.Visibility = Visibility.Visible; });
+
+        private void HideStatus()
+            => Dispatcher.Invoke(() => _statusBar.Visibility = Visibility.Collapsed);
 
         public override void UpdateData() { }  // no LMU telemetry dependency
 
