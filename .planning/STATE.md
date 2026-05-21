@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-01-PLAN.md — PiperTTS AlertTexts RED stubs done
-last_updated: "2026-05-21T14:17:59.988Z"
+stopped_at: Completed 05-02-PLAN.md — AlertTexts + GetAlertText + EnsureDefaultAlertTexts + 23 Enqueue replacements done
+last_updated: "2026-05-21T14:24:08.242Z"
 last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
   percent: 70
 ---
 
@@ -66,6 +66,7 @@ Progress: [███████░░░] 70% (Phase 4 in progress)
 | Phase 04-twitch-chat-visual-customization P02 | 3min | 2 tasks | 3 files |
 | Phase 04-twitch-chat-visual-customization P03 | 25min | 2 tasks | 1 files |
 | Phase 05-tts-humanization P01 | 5min | 1 tasks | 1 files |
+| Phase 05-tts-humanization P02 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,9 @@ Recent decisions affecting current work:
 - [Phase 04-twitch-chat-visual-customization]: AddColorPicker reused with existing internal presets — plan's custom bgPresets/accPresets dropped in favor of existing 8-swatch palette (no API change needed)
 - [Phase 05-tts-humanization]: 6 test classes in one file mirrors TwitchVisualConfigTests pattern — one Fact per class for isolation
 - [Phase 05-tts-humanization]: All AlertTexts/GetAlertText/EnsureDefaultAlertTexts references kept out of method signatures — stub bodies only contain Assert.Fail so no compile error before Plan 05-02 adds the implementation
+- [Phase 05-tts-humanization]: AlertTexts setter converts null to new() — Newtonsoft.Json assigns null on missing key, setter ensures non-null post-deserialize without migration code
+- [Phase 05-tts-humanization]: GetAlertText guards IsNullOrWhiteSpace — accidental blank overrides fall through to hardcoded default, silent empty TTS prevented
+- [Phase 05-tts-humanization]: EnsureDefaultAlertTexts uses TryAdd — custom user texts in config.json are never overwritten on next launch
 
 ### Roadmap Evolution
 
@@ -135,6 +139,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-21T14:17:59.985Z
-Stopped at: Completed 05-01-PLAN.md — PiperTTS AlertTexts RED stubs done
+Last session: 2026-05-21T14:24:08.240Z
+Stopped at: Completed 05-02-PLAN.md — AlertTexts + GetAlertText + EnsureDefaultAlertTexts + 23 Enqueue replacements done
 Resume file: None

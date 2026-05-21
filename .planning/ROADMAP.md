@@ -103,7 +103,7 @@ Plans:
 **Goal:** Le pilote peut editer les 23 textes d'alertes vocales depuis l'onglet Audio et generer les WAV correspondants via Piper TTS local (voix VITS fr_FR naturelle) en cliquant "Appliquer" — sans installation manuelle de Piper
 **Requirements**: TBD
 **Depends on:** Phase 4
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 05-01-PLAN.md — Wave 0: RED TDD stubs AlertTextsTests (JSON round-trip, GetAlertText, 23 defaults)
