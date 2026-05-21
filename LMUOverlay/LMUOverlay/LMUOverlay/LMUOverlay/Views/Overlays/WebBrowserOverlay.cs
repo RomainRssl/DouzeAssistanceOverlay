@@ -14,6 +14,7 @@ namespace LMUOverlay.Views.Overlays
         private readonly WebView2   _webView;
         private readonly TextBlock  _statusBar;
         private bool   _initialized;
+        private bool   _initFailed;
         private string _pendingUrl = "";
 
         public WebBrowserOverlay(DataService ds, OverlaySettings s) : base(ds, s)
@@ -95,12 +96,19 @@ namespace LMUOverlay.Views.Overlays
             }
             catch (Exception ex)
             {
-                SetStatus($"Erreur WebView2 : {ex.Message}");
+                _initFailed = true;
+                SetStatus($"WebView2 indisponible : {ex.Message} — Installer le runtime sur https://aka.ms/webview2");
             }
         }
 
         public void LoadUrl(string url)
         {
+            if (_initFailed)
+            {
+                SetStatus("WebView2 indisponible — voir le message d'erreur dans l'overlay");
+                return;
+            }
+
             if (!WebBrowserUrlValidator.IsValidWebUrl(url))
             {
                 SetStatus("URL invalide — doit commencer par http:// ou https://");
@@ -109,9 +117,8 @@ namespace LMUOverlay.Views.Overlays
 
             if (!_initialized)
             {
-                // Init still in progress — queue the URL
                 _pendingUrl = url;
-                SetStatus("Chargement en cours...");
+                SetStatus("Initialisation en cours, l'URL sera chargee automatiquement...");
                 return;
             }
 
