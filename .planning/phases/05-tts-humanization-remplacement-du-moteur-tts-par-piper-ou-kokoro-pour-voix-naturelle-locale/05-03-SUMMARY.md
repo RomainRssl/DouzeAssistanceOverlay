@@ -57,7 +57,7 @@ completed: 2026-05-21
 - **Duration:** 8 min
 - **Started:** 2026-05-21T14:27:00Z
 - **Completed:** 2026-05-21T14:35:00Z
-- **Tasks:** 2 (+ checkpoint)
+- **Tasks:** 3 (2 auto + 1 checkpoint human-verify)
 - **Files modified:** 3
 
 ## Accomplishments
@@ -70,6 +70,7 @@ completed: 2026-05-21
 
 1. **Task 1: Wire EnsureDefaultAlertTexts at startup** - `56b708c` (feat)
 2. **Task 2: Add Textes des alertes section + Piper generation code** - `1e75b89` (feat)
+3. **Task 3: Human verify — VoicePanel Textes des alertes end-to-end** - Checkpoint approved by user
 
 ## Files Created/Modified
 
@@ -95,12 +96,23 @@ None
 
 None - no external service configuration required. (piper.exe must be placed in `piper\` subfolder next to the executable for WAV generation to work; the app shows an error in TbPiperStatus if absent, no crash.)
 
+## Checkpoint Verification
+
+**Task 3: Human-verify checkpoint — APPROVED**
+
+User verified:
+- VoicePanel "TEXTES DES ALERTES — PIPER TTS" section visible and 23 TextBox pre-populated
+- APPLIQUER button triggers WAV generation (or shows graceful error if piper.exe absent)
+- Config saved and ComboBox refreshed to "piper" after generation
+- No crash on missing piper.exe
+
 ## Next Phase Readiness
 
-Phase 5 task code is complete. Human-verify checkpoint (Task 3) awaits visual and functional verification:
-- Launch app, navigate to Audio tab, confirm 23 TextBox pre-populated
-- Edit texts, click APPLIQUER, verify WAV generation (or graceful error if piper.exe absent)
-- Confirm config.json saved and voice pack ComboBox refreshed to "piper"
+Phase 5 (TTS Humanization) is fully complete:
+- AlertTexts model established in GeneralSettings (Plans 05-01/05-02)
+- 23 default texts initialized on startup via EnsureDefaultAlertTexts (Plan 05-03)
+- VoicePanel UI complete with Piper stdin generation (Plan 05-03)
+- Human checkpoint approved — end-to-end flow verified
 
 ---
 *Phase: 05-tts-humanization*

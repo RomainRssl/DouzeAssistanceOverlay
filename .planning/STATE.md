@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-03-PLAN.md — VoicePanel Textes des alertes section + Piper stdin generation wired; awaiting human-verify checkpoint
-last_updated: "2026-05-21T14:28:57.981Z"
+stopped_at: Completed 05-03-PLAN.md — VoicePanel Textes des alertes + Piper stdin generation complete; human-verify checkpoint approved
+last_updated: "2026-05-21T14:58:35.729Z"
 last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 progress:
   total_phases: 6
@@ -68,6 +68,7 @@ Progress: [███████░░░] 70% (Phase 4 in progress)
 | Phase 05-tts-humanization P01 | 5min | 1 tasks | 1 files |
 | Phase 05-tts-humanization P02 | 4min | 2 tasks | 3 files |
 | Phase 05-tts-humanization P03 | 8min | 2 tasks | 3 files |
+| Phase 05-tts-humanization P03 | 10min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,7 @@ Recent decisions affecting current work:
 - [Phase 05-tts-humanization]: EnsureDefaultAlertTexts placed in MainWindow ctor (not App.xaml.cs) — AppConfig is loaded there, App.xaml.cs has no AppConfig reference
 - [Phase 05-tts-humanization]: _piperTextBoxMapping as static readonly field — avoids duplicating 23-entry dict in both PopulatePiperTexts and CollectAlertTexts
 - [Phase 05-tts-humanization]: GenerateWav stdin pattern: RedirectStandardInput=true + Close() before WaitForExit(15000) — NOT --text arg (freezes on Windows issue #810)
+- [Phase 05-tts-humanization]: Human-verify checkpoint approved for VoicePanel Textes des alertes end-to-end — 23 TextBox, Piper stdin WAV generation, graceful error on missing binary all verified
 
 ### Roadmap Evolution
 
@@ -143,6 +145,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-21T14:28:57.978Z
-Stopped at: Completed 05-03-PLAN.md — VoicePanel Textes des alertes section + Piper stdin generation wired; awaiting human-verify checkpoint
+Last session: 2026-05-21T14:58:35.726Z
+Stopped at: Completed 05-03-PLAN.md — VoicePanel Textes des alertes + Piper stdin generation complete; human-verify checkpoint approved
 Resume file: None
