@@ -335,6 +335,7 @@ namespace LMUOverlay.Views
                 {
                     FileName               = piperExe,
                     Arguments              = $"--model \"{modelPath}\" --output_file \"{outputWav}\"",
+                    WorkingDirectory       = Path.GetDirectoryName(piperExe)!,
                     UseShellExecute        = false,
                     RedirectStandardInput  = true,
                     RedirectStandardError  = true,
