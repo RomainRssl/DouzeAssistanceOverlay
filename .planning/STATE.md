@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03-PLAN.md — Phase 4 fully done, checkpoint human-verify approved
-last_updated: "2026-05-20T17:24:09.857Z"
+stopped_at: Completed 05-01-PLAN.md — PiperTTS AlertTexts RED stubs done
+last_updated: "2026-05-21T14:17:59.988Z"
 last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 19
+  completed_plans: 17
   percent: 70
 ---
 
@@ -65,6 +65,7 @@ Progress: [███████░░░] 70% (Phase 4 in progress)
 | Phase 03-web-browser-overlay P03 | 2min | 2 tasks | 1 files |
 | Phase 04-twitch-chat-visual-customization P02 | 3min | 2 tasks | 3 files |
 | Phase 04-twitch-chat-visual-customization P03 | 25min | 2 tasks | 1 files |
+| Phase 05-tts-humanization P01 | 5min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 04-twitch-chat-visual-customization]: Inverted toggle for Masquer le bandeau: AddToggle receives !ShowHeader so checked=hidden (ShowHeader=!v) — matches French UX expectations
 - [Phase 04-twitch-chat-visual-customization]: Inverted toggle pour Masquer le bandeau: AddToggle reçoit !ShowHeader, callback fait ShowHeader=!v — checked=masqué correspond aux attentes UX françaises
 - [Phase 04-twitch-chat-visual-customization]: AddColorPicker reused with existing internal presets — plan's custom bgPresets/accPresets dropped in favor of existing 8-swatch palette (no API change needed)
+- [Phase 05-tts-humanization]: 6 test classes in one file mirrors TwitchVisualConfigTests pattern — one Fact per class for isolation
+- [Phase 05-tts-humanization]: All AlertTexts/GetAlertText/EnsureDefaultAlertTexts references kept out of method signatures — stub bodies only contain Assert.Fail so no compile error before Plan 05-02 adds the implementation
 
 ### Roadmap Evolution
 
@@ -132,6 +135,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-20T16:50:24.578Z
-Stopped at: Completed 04-03-PLAN.md — Phase 4 fully done, checkpoint human-verify approved
+Last session: 2026-05-21T14:17:59.985Z
+Stopped at: Completed 05-01-PLAN.md — PiperTTS AlertTexts RED stubs done
 Resume file: None
