@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -83,13 +84,21 @@ namespace LMUOverlay.Views.Overlays
             try
             {
                 SetStatus("Initialisation WebView2...");
-                await _webView.EnsureCoreWebView2Async(null);
+
+                // Dossier explicite pour éviter les conflits de verrouillage entre instances
+                var dataFolder = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "DouzeAssistance", "WebView2");
+                var env = await CoreWebView2Environment.CreateAsync(null, dataFolder);
+                await _webView.EnsureCoreWebView2Async(env);
+
                 _webView.NavigationCompleted += OnNavigationCompleted;
                 _initialized = true;
                 HideStatus();
 
                 if (!string.IsNullOrEmpty(_pendingUrl))
                 {
+                    SetStatus("Chargement...");
                     _webView.CoreWebView2.Navigate(_pendingUrl);
                     _pendingUrl = "";
                 }
@@ -97,7 +106,7 @@ namespace LMUOverlay.Views.Overlays
             catch (Exception ex)
             {
                 _initFailed = true;
-                SetStatus($"WebView2 indisponible : {ex.Message} — Installer le runtime sur https://aka.ms/webview2");
+                SetStatus($"Erreur WebView2 : {ex.Message}");
             }
         }
 
