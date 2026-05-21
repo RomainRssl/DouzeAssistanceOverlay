@@ -323,11 +323,8 @@ namespace LMUOverlay.Views
             return result;
         }
 
-        /// <summary>
-        /// Genere un WAV via piper.exe en passant le texte par stdin.
-        /// IMPORTANT : N'utiliser JAMAIS --text en argument — se fige sur Windows (issue #810).
-        /// </summary>
-        private static bool GenerateWav(string piperExe, string modelPath, string outputWav, string text)
+        // IMPORTANT : N'utiliser JAMAIS --text en argument — se fige sur Windows (issue #810).
+        private static (bool ok, string error) GenerateWav(string piperExe, string modelPath, string outputWav, string text)
         {
             try
             {
@@ -350,14 +347,17 @@ namespace LMUOverlay.Views
                 proc.StandardInput.Close();  // CRITIQUE : fermer avant WaitForExit
 
                 bool exited = proc.WaitForExit(15_000);
-                if (!exited) proc.Kill();
+                string stderr = proc.StandardError.ReadToEnd().Trim();
 
-                return exited && proc.ExitCode == 0 && File.Exists(outputWav);
+                if (!exited) { proc.Kill(); return (false, "Timeout (>15s)"); }
+                if (proc.ExitCode != 0) return (false, $"Exit {proc.ExitCode}: {stderr}");
+                if (!File.Exists(outputWav)) return (false, $"WAV absent apres generation. {stderr}");
+
+                return (true, "");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Piper] Erreur generation '{outputWav}': {ex.Message}");
-                return false;
+                return (false, ex.Message);
             }
         }
 
@@ -400,8 +400,9 @@ namespace LMUOverlay.Views
             TbPiperStatus.Text = $"Generation en cours... (0/{toGenerate.Count})";
             BtnApplyPiper.IsEnabled = false;
 
-            int done   = 0;
-            bool allOk = true;
+            int done      = 0;
+            bool allOk    = true;
+            string lastErr = "";
 
             await Task.Run(() =>
             {
@@ -409,8 +410,8 @@ namespace LMUOverlay.Views
                 {
                     if (string.IsNullOrWhiteSpace(text)) continue;
                     var outputWav = Path.Combine(outputDir, $"{key}.wav");
-                    bool ok = GenerateWav(piperExe, modelPath, outputWav, text);
-                    if (!ok) allOk = false;
+                    var (ok, err) = GenerateWav(piperExe, modelPath, outputWav, text);
+                    if (!ok) { allOk = false; lastErr = err; }
                     done++;
                     Dispatcher.Invoke(() =>
                         TbPiperStatus.Text = $"Generation en cours... ({done}/{toGenerate.Count})");
@@ -431,7 +432,7 @@ namespace LMUOverlay.Views
 
             TbPiperStatus.Text = allOk
                 ? $"{toGenerate.Count} WAV generes avec succes."
-                : "Generation terminee avec des erreurs (voir logs Debug).";
+                : $"Erreur Piper : {lastErr}";
             BtnApplyPiper.IsEnabled = true;
         }
     }
