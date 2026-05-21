@@ -304,6 +304,7 @@ namespace LMUOverlay.Views
         private void PopulatePiperTexts()
         {
             if (_settings == null) return;
+            TbPiperModelPath.Text = _settings.PiperModelPath;
             foreach (var (tbName, key) in _piperTextBoxMapping)
             {
                 if (FindName(tbName) is TextBox tb)
@@ -366,12 +367,21 @@ namespace LMUOverlay.Views
 
             var baseDir   = AppDomain.CurrentDomain.BaseDirectory;
             var piperExe  = Path.Combine(baseDir, "piper", "piper.exe");
-            var modelPath = Path.Combine(baseDir, "piper", "fr_FR-siwis-medium.onnx");
+            var savedPath = TbPiperModelPath.Text.Trim();
+            var modelPath = string.IsNullOrWhiteSpace(savedPath)
+                ? Path.Combine(baseDir, "piper", "fr_FR-mls-medium.onnx")
+                : (Path.IsPathRooted(savedPath) ? savedPath : Path.Combine(baseDir, savedPath));
             var outputDir = Path.Combine(VoiceService.VoiceRootDir, "piper");
 
             if (!File.Exists(piperExe))
             {
                 TbPiperStatus.Text = "Erreur : piper.exe introuvable dans piper\\";
+                return;
+            }
+
+            if (!File.Exists(modelPath))
+            {
+                TbPiperStatus.Text = $"Erreur : modele introuvable — {modelPath}";
                 return;
             }
 
@@ -409,7 +419,8 @@ namespace LMUOverlay.Views
             foreach (var (key, text) in newTexts)
                 _settings.AlertTexts[key] = text;
 
-            _settings.VoicePackName = "piper";
+            _settings.PiperModelPath = savedPath;
+            _settings.VoicePackName  = "piper";
             _config.Save(_appConfig);
             _voice?.SetWavPack("piper");
 

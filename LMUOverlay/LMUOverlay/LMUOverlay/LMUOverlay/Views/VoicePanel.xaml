@@ -698,8 +698,24 @@
                                      CaretBrush="#FFD0D0D0"/>
                         </Grid>
 
+                        <!-- CHEMIN DU MODELE PIPER -->
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Modele .onnx" FontFamily="Segoe UI" FontSize="10"
+                                       Foreground="#FF7A7A7A" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" x:Name="TbPiperModelPath"
+                                     Background="#FF141414" Foreground="#FFD0D0D0"
+                                     BorderBrush="#FF2A2A2A" BorderThickness="1"
+                                     FontFamily="Segoe UI" FontSize="10" Padding="4,3"
+                                     CaretBrush="#FFD0D0D0"
+                                     ToolTip="Chemin vers le fichier .onnx (ex: piper\voices\fr_FR-mls-medium.onnx)"/>
+                        </Grid>
+
                         <!-- BOUTON APPLIQUER + STATUS -->
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <Button x:Name="BtnApplyPiper" Content="APPLIQUER"
                                     Style="{StaticResource VoiceBtn}"
                                     Click="OnApplyPiperTexts"/>

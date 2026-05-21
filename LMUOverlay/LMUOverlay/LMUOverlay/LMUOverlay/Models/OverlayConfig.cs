@@ -449,6 +449,10 @@ namespace LMUOverlay.Models
         public int CooldownPositionSeconds    { get => _cooldownPositionSeconds;    set { _cooldownPositionSeconds    = Math.Max(1, value); OnPropertyChanged(); } }
         public int CooldownSpotterSeconds     { get => _cooldownSpotterSeconds;     set { _cooldownSpotterSeconds     = Math.Max(1, value); OnPropertyChanged(); } }
 
+        // ── Piper TTS — chemin du modèle .onnx ───────────────────────────────
+        private string _piperModelPath = "";
+        public string PiperModelPath { get => _piperModelPath; set { _piperModelPath = value ?? ""; OnPropertyChanged(); } }
+
         // ── AlertTexts — textes éditables des 23 alertes vocales ─────────────
         private Dictionary<string, string> _alertTexts = new();
 
