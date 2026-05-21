@@ -54,6 +54,10 @@
                         Style="{StaticResource VoiceBtn}"
                         DockPanel.Dock="Right"
                         Foreground="#FF22C55E"/>
+                <Button x:Name="BtnPiperHelp" Content="? AIDE PIPER" Click="OnPiperHelp"
+                        Style="{StaticResource VoiceBtn}"
+                        DockPanel.Dock="Right" Margin="0,0,6,0"
+                        Foreground="#FF9146FF"/>
             </DockPanel>
         </Border>
 

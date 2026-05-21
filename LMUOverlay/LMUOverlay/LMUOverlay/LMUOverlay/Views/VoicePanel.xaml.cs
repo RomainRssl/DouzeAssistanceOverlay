@@ -122,11 +122,28 @@ namespace LMUOverlay.Views
 
             // Peupler les TextBox des textes d'alertes Piper (Phase 5)
             PopulatePiperTexts();
+
+            // Afficher le guide Piper à la première ouverture de l'onglet
+            if (!settings.PiperGuideShown)
+            {
+                settings.PiperGuideShown = true;
+                _config.Save(_appConfig);
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                    () => ShowPiperGuide());
+            }
         }
 
         // ================================================================
         // HANDLERS
         // ================================================================
+
+        private void ShowPiperGuide()
+        {
+            var win = new PiperGuideWindow { Owner = Window.GetWindow(this) };
+            win.ShowDialog();
+        }
+
+        private void OnPiperHelp(object s, RoutedEventArgs e) => ShowPiperGuide();
 
         private void PopulateVoicePacks(string selectedPack)
         {

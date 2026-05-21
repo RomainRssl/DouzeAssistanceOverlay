@@ -453,6 +453,9 @@ namespace LMUOverlay.Models
         private string _piperModelPath = "";
         public string PiperModelPath { get => _piperModelPath; set { _piperModelPath = value ?? ""; OnPropertyChanged(); } }
 
+        private bool _piperGuideShown = false;
+        public bool PiperGuideShown { get => _piperGuideShown; set { _piperGuideShown = value; OnPropertyChanged(); } }
+
         // ── AlertTexts — textes éditables des 23 alertes vocales ─────────────
         private Dictionary<string, string> _alertTexts = new();
 
