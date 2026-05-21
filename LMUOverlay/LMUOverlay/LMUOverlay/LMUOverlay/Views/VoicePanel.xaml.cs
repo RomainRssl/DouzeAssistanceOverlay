@@ -387,12 +387,13 @@ namespace LMUOverlay.Views
 
             var newTexts   = CollectAlertTexts();
             var toGenerate = newTexts
-                .Where(kv => _settings.GetAlertText(kv.Key, "") != kv.Value)
+                .Where(kv => _settings.GetAlertText(kv.Key, "") != kv.Value
+                         || !File.Exists(Path.Combine(outputDir, $"{kv.Key}.wav")))
                 .ToList();
 
             if (toGenerate.Count == 0)
             {
-                TbPiperStatus.Text = "Aucun changement detecte.";
+                TbPiperStatus.Text = "Aucun changement detecte et tous les WAV existent deja.";
                 return;
             }
 
