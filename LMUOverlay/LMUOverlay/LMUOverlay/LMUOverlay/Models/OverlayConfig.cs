@@ -449,6 +449,23 @@ namespace LMUOverlay.Models
         public int CooldownPositionSeconds    { get => _cooldownPositionSeconds;    set { _cooldownPositionSeconds    = Math.Max(1, value); OnPropertyChanged(); } }
         public int CooldownSpotterSeconds     { get => _cooldownSpotterSeconds;     set { _cooldownSpotterSeconds     = Math.Max(1, value); OnPropertyChanged(); } }
 
+        // ── AlertTexts — textes éditables des 23 alertes vocales ─────────────
+        private Dictionary<string, string> _alertTexts = new();
+
+        public Dictionary<string, string> AlertTexts
+        {
+            get => _alertTexts;
+            set { _alertTexts = value ?? new Dictionary<string, string>(); OnPropertyChanged(); }
+        }
+
+        /// <summary>
+        /// Retourne le texte de l'alerte depuis AlertTexts si présent et non vide,
+        /// sinon retourne le texte par défaut hardcodé.
+        /// </summary>
+        public string GetAlertText(string key, string defaultText)
+            => _alertTexts.TryGetValue(key, out var txt) && !string.IsNullOrWhiteSpace(txt)
+                ? txt : defaultText;
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
