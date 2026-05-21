@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-02-PLAN.md — AlertTexts + GetAlertText + EnsureDefaultAlertTexts + 23 Enqueue replacements done
-last_updated: "2026-05-21T14:24:08.242Z"
+stopped_at: Completed 05-03-PLAN.md — VoicePanel Textes des alertes section + Piper stdin generation wired; awaiting human-verify checkpoint
+last_updated: "2026-05-21T14:28:57.981Z"
 last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
   percent: 70
 ---
 
@@ -67,6 +67,7 @@ Progress: [███████░░░] 70% (Phase 4 in progress)
 | Phase 04-twitch-chat-visual-customization P03 | 25min | 2 tasks | 1 files |
 | Phase 05-tts-humanization P01 | 5min | 1 tasks | 1 files |
 | Phase 05-tts-humanization P02 | 4min | 2 tasks | 3 files |
+| Phase 05-tts-humanization P03 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 05-tts-humanization]: AlertTexts setter converts null to new() — Newtonsoft.Json assigns null on missing key, setter ensures non-null post-deserialize without migration code
 - [Phase 05-tts-humanization]: GetAlertText guards IsNullOrWhiteSpace — accidental blank overrides fall through to hardcoded default, silent empty TTS prevented
 - [Phase 05-tts-humanization]: EnsureDefaultAlertTexts uses TryAdd — custom user texts in config.json are never overwritten on next launch
+- [Phase 05-tts-humanization]: EnsureDefaultAlertTexts placed in MainWindow ctor (not App.xaml.cs) — AppConfig is loaded there, App.xaml.cs has no AppConfig reference
+- [Phase 05-tts-humanization]: _piperTextBoxMapping as static readonly field — avoids duplicating 23-entry dict in both PopulatePiperTexts and CollectAlertTexts
+- [Phase 05-tts-humanization]: GenerateWav stdin pattern: RedirectStandardInput=true + Close() before WaitForExit(15000) — NOT --text arg (freezes on Windows issue #810)
 
 ### Roadmap Evolution
 
@@ -139,6 +143,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-21T14:24:08.240Z
-Stopped at: Completed 05-02-PLAN.md — AlertTexts + GetAlertText + EnsureDefaultAlertTexts + 23 Enqueue replacements done
+Last session: 2026-05-21T14:28:57.978Z
+Stopped at: Completed 05-03-PLAN.md — VoicePanel Textes des alertes section + Piper stdin generation wired; awaiting human-verify checkpoint
 Resume file: None
