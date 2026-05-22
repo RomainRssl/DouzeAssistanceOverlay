@@ -1,22 +1,29 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Completed 05-03-PLAN.md — VoicePanel Textes des alertes + Piper stdin generation complete; human-verify checkpoint approved
-last_updated: "2026-05-21T15:04:27.565Z"
-last_activity: 2026-05-20 — Phase 04-01 TwitchVisual RED stubs committed (80dfd52); tests GREEN — TwitchSettings visual fields pre-applied
+milestone_name: MVP
+status: shipped
+stopped_at: "Milestone v1.0 MVP archived 2026-05-22"
+last_updated: "2026-05-22T00:00:00.000Z"
+last_activity: "2026-05-22 — Milestone v1.0 MVP shipped, archived to .planning/milestones/"
 progress:
   total_phases: 6
   completed_phases: 6
   total_plans: 19
   completed_plans: 19
-  percent: 70
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-05-22)
+
+**Core value:** Le pilote sait en un coup d'œil combien d'essence/énergie ajouter au pit stop pour finir la course — en tenant compte du leader global et du multi-classe.
+**Current focus:** Planning next milestone (v1.1)
+
+## Project Reference (old — superseded)
 
 See: .planning/PROJECT.md (updated 2026-05-19)
 
