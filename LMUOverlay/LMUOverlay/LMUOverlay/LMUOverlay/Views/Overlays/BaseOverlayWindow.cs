@@ -428,7 +428,7 @@ namespace LMUOverlay.Views.Overlays
         {
             if (Settings.IsLocked || _isResizing) return;
             _isDragging = true;
-            _dragStart = e.GetPosition(this);
+            _dragStart   = PointToScreen(e.GetPosition(this));  // screen coords — same approach as DoResize
             _rawDragLeft = Left;
             _rawDragTop  = Top;
             CaptureMouse();
@@ -438,12 +438,9 @@ namespace LMUOverlay.Views.Overlays
         private void OnMouseMoveHandler(object sender, MouseEventArgs e)
         {
             if (!_isDragging) return;
-            var pos = e.GetPosition(this);
-            _rawDragLeft += pos.X - _dragStart.X;
-            _rawDragTop  += pos.Y - _dragStart.Y;
-            _dragStart = pos;  // reset delta base each frame
-            Left = SnapGridHelper.Snap(_rawDragLeft);
-            Top  = SnapGridHelper.Snap(_rawDragTop);
+            var screen = PointToScreen(e.GetPosition(this));
+            Left = SnapGridHelper.Snap(_rawDragLeft + screen.X - _dragStart.X);
+            Top  = SnapGridHelper.Snap(_rawDragTop  + screen.Y - _dragStart.Y);
         }
 
         private void OnMouseUp(object sender, MouseButtonEventArgs e)
